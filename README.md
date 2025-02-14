@@ -19,6 +19,7 @@ AgentOrchestrator is an open‑source, production‑grade tool for deploying and
 
 ### Prerequisites
 
+- UV package manager 
 - Docker and docker‑compose installed on your development machine.
 - Python 3.12 or later.
 - Familiarity with container orchestration and basic DevOps practices.
