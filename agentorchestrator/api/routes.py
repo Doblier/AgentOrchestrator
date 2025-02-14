@@ -5,20 +5,15 @@ API routes for AgentOrchestrator.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.agent.ao_agent import run_workflow
+from agentorchestrator.api.route_loader import create_dynamic_router
 
+# Create the base router
 router = APIRouter(prefix="/api/v1")
 
 class HealthCheck(BaseModel):
     """Health check response model."""
     status: str
     version: str
-
-class AgentResponse(BaseModel):
-    """Agent execution response model."""
-    fun_fact: str
-    country: str
-    city: str
 
 @router.get("/health", response_model=HealthCheck)
 async def health_check():
@@ -28,33 +23,6 @@ async def health_check():
         status="healthy",
         version=__version__
     )
-
-@router.get("/agent/execute", response_model=AgentResponse)
-async def execute_agent(country: str):
-    """Execute the agent workflow."""
-    try:
-        # Initialize workflow state
-        initial_state = {"country": country}
-        
-        # Execute workflow
-        result = run_workflow(initial_state)
-        
-        # Log the result for debugging
-        print(f"Workflow result: {result}")
-        
-        # Ensure we have all required fields
-        if not all(key in result for key in ["fun_fact", "country", "city"]):
-            raise ValueError(f"Workflow result missing required fields. Got: {result}")
-        
-        return AgentResponse(
-            fun_fact=result["fun_fact"],
-            country=result["country"],
-            city=result["city"]
-        )
-    except Exception as e:
-        import traceback
-        error_detail = f"{str(e)}\n{traceback.format_exc()}"
-        raise HTTPException(status_code=500, detail=error_detail)
 
 @router.get("/tools")
 async def list_tools():
@@ -73,4 +41,8 @@ async def get_tool_schema(tool_name: str):
     schema = registry.get_tool_schema(tool_name)
     if not schema:
         raise HTTPException(status_code=404, detail="Tool not found")
-    return schema 
+    return schema
+
+# Include dynamically loaded agent routes
+dynamic_router = create_dynamic_router()
+router.include_router(dynamic_router) 
