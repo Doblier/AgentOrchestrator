@@ -32,19 +32,14 @@ AgentOrchestrator is an open‑source, production‑grade tool for deploying and
    cd AgentOrchestrator
    ```
 
-2. **Create and activate a virtual environment:**
+2. **Sync:**
 
     ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
+      uv sync
+3. Run Project
+    ```bash
+      uv run ao-serve
     ```
-
-3. **Install dependencies:**
-
-    ```bash
-      pip install -r requirements.txt
-
 ### Usage
 - Build the Docker Image:
 
