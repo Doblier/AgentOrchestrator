@@ -11,7 +11,8 @@ Each agent must follow the standard pattern:
 import importlib
 import os
 import sys
-from typing import Dict, Any, Type, Callable
+import json
+from typing import Dict, Any, Type, Callable, Union
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, create_model
@@ -28,6 +29,9 @@ def discover_agents() -> Dict[str, Any]:
     
     # Look for agent directories
     for agent_dir in os.listdir(routes_dir):
+        if agent_dir.startswith("__"):  # Skip __pycache__ and similar
+            continue
+            
         agent_path = os.path.join(routes_dir, agent_dir)
         ao_agent_path = os.path.join(agent_path, "ao_agent.py")
         
@@ -73,7 +77,7 @@ def create_response_model(agent_name: str, agent_module: Any) -> Type[BaseModel]
             annotations = agent_module.WorkflowState.__annotations__
             return create_model(
                 f"{agent_name.title()}Response",
-                **{k: (v, ...) for k, v in annotations.items() if not k.startswith("_")}
+                **{k: (v, ...) for k, v in annotations.items() if not k.startswith("_") and k != "input"}
             )
         else:
             print(f"Warning: No WorkflowState found for {agent_name}")
@@ -88,42 +92,20 @@ def create_response_model(agent_name: str, agent_module: Any) -> Type[BaseModel]
             result=(Dict[str, Any], ...)
         )
 
-def get_input_params(agent_name: str, agent_module: Any) -> Dict[str, Any]:
-    """Get input parameters for an agent based on its WorkflowState."""
-    if not hasattr(agent_module, "WorkflowState"):
-        print(f"Warning: No WorkflowState found for {agent_name}")
-        return {}
-        
-    try:
-        # Get required fields from WorkflowState
-        annotations = agent_module.WorkflowState.__annotations__
-        # Only include fields that don't have Optional type and use 'input' as parameter name
-        required_fields = {
-            'input': (str, Query(..., description=f"Input for {agent_name} agent"))
-        }
-        return required_fields
-    except Exception as e:
-        print(f"Warning: Failed to get input params for {agent_name}: {e}")
-        return {}
-
 def create_execute_function(name: str, module: Any) -> Callable:
     """Create an execution function for the agent."""
-    # Create the function with a single 'input' parameter
     async def execute_agent(input: str = Query(..., description=f"Input for {name} agent")):
         try:
-            # Get the first required field from WorkflowState
-            if hasattr(module, "WorkflowState"):
-                annotations = module.WorkflowState.__annotations__
-                required_field = next((k for k, v in annotations.items() 
-                                    if not str(v).startswith("typing.Optional")), None)
-                if required_field:
-                    # Execute workflow with the input mapped to the required field
-                    state = {required_field: input}
-                    result = module.run_workflow(state)
-                    print(f"{name} workflow result: {result}")
-                    return result
+            # Try to parse input as JSON if it's a dictionary input
+            try:
+                input_data = json.loads(input)
+            except json.JSONDecodeError:
+                input_data = input  # Keep as string if not valid JSON
+                
+            # Execute workflow with the input using invoke()
+            result = module.run_workflow.invoke(input_data)
+            return result
             
-            raise HTTPException(status_code=400, detail="Invalid agent configuration")
         except Exception as e:
             import traceback
             error_detail = f"{str(e)}\n{traceback.format_exc()}"
@@ -152,12 +134,11 @@ def create_dynamic_router() -> APIRouter:
     for agent_name, agent_module in agents.items():
         try:
             response_model = create_response_model(agent_name, agent_module)
-            input_params = get_input_params(agent_name, agent_module)
             
-            # Create the execution function with the correct parameters
+            # Create the execution function
             handler = create_execute_function(agent_name, agent_module)
             
-            # Add the route with dynamic parameters
+            # Add the route
             router.add_api_route(
                 f"/agent/{agent_name}",
                 handler,
@@ -165,7 +146,7 @@ def create_dynamic_router() -> APIRouter:
                 methods=["GET"]
             )
             
-            print(f"Registered route: /api/v1/agent/{agent_name} [GET] input=str")
+            print(f"Registered route: /api/v1/agent/{agent_name} [GET]")
         except Exception as e:
             print(f"Failed to register route for {agent_name}: {str(e)}")
             import traceback

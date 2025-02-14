@@ -1,65 +1,64 @@
-"""
-City Facts Agent - Generates random city facts for given countries.
-
-This is a stateless agent that follows the standard AgentOrchestrator workflow pattern.
-"""
-
-from typing import Dict, Any, TypedDict, Optional
-
+import os
+from random import randint
 from dotenv import load_dotenv, find_dotenv
-from langgraph.graph import StateGraph
+from typing import TypedDict, Dict, Any
+from langgraph.func import entrypoint, task
 from langchain_google_genai import ChatGoogleGenerativeAI
+from ..validation import validate_route_input
 
 _: bool = load_dotenv(find_dotenv())
 
+model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+
+
 class WorkflowState(TypedDict):
-    """Type definition for workflow state."""
-    country: str
-    city: Optional[str]
-    fun_fact: Optional[str]
+    """Define the input and output state for the workflow."""
+    input: Dict[str, Any]  # The input dictionary with topic
+    sentence_count: int  # Number of sentences in the poem
+    poem: str  # The generated poem
+    status: str  # Save status message
 
-def create_llm():
-    """Create LLM instance - separated for better testing and mocking."""
-    return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 
-def generate_city(state: WorkflowState) -> WorkflowState:
-    """Generate a random city using an LLM call."""
-    model = create_llm()
-    response = model.invoke(
-        f"""Return the name of a random city in {state["country"]}. Only return the name of the city."""
-    )
-    state["city"] = response.content.strip()
-    return state
+@task
+def generate_sentence_count() -> int:
+    """Generate a random sentence count for the poem."""
+    return randint(1, 5)
 
-def generate_fun_fact(state: WorkflowState) -> WorkflowState:
-    """Generate a fun fact about the given city."""
-    model = create_llm()
-    response = model.invoke(
-        f"""Tell me a fun fact about {state["city"]}. Only return the fun fact."""
-    )
-    state["fun_fact"] = response.content.strip()
-    return state
 
-def create_workflow() -> StateGraph:
-    """Create the workflow graph."""
-    workflow = StateGraph(state_schema=WorkflowState)
+@task
+def generate_poem(sentence_count: int, topic: str) -> str:
+    """Generate a poem based on the sentence count using the AI model."""
+    prompt = f"""Write a beautiful and engaging poem about {
+        topic} with exactly {sentence_count} sentences."""
+    response = model.invoke(prompt)
+    return response.content
 
-    # Add nodes for each step
-    workflow.add_node("generate_city", generate_city)
-    workflow.add_node("generate_fun_fact", generate_fun_fact)
 
-    # Add edges to connect the steps
-    workflow.add_edge("generate_city", "generate_fun_fact")
+@task
+def save_poem(poem: str) -> str:
+    """Save the poem to a file in a correct directory to avoid path errors."""
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
+    file_path = os.path.join(output_dir, "poem.txt")
 
-    # Set entry and finish points
-    workflow.set_entry_point("generate_city")
-    workflow.set_finish_point("generate_fun_fact")
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(poem)
 
-    return workflow.compile()
+    return f"Poem saved successfully at {file_path}"
 
-# Create singleton workflow instance
-WORKFLOW = create_workflow()
 
-def run_workflow(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute the workflow with the given state."""
-    return WORKFLOW.invoke(state)
+@entrypoint()
+def workflow(input: Dict[str, Any]) -> Dict[str, Any]:
+    """Workflow to generate and save a poem."""
+    # Validate input
+    validated_input = validate_route_input("cityfacts", input)
+    
+    sentence_count = generate_sentence_count().result()
+    poem = generate_poem(sentence_count, validated_input["topic"]).result()
+    save_status = save_poem(poem).result()
+
+    return {"sentence_count": sentence_count, "poem": poem, "status": save_status}
+
+
+# Create the workflow instance
+run_workflow = workflow
