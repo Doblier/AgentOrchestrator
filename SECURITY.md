@@ -39,4 +39,4 @@ While we take all reported security issues seriously, please note that AgentOrch
 
 ---
 
-For any security-related questions, please contact us directly at [security@yourdomain.com](mailto:security@yourdomain.com).
+For any security-related questions, please contact us directly at [security@panaversity.org](mailto:security@panaversity.org).
