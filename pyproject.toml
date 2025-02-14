@@ -1,0 +1,35 @@
+[project]
+name = "agentorchestrator"
+version = "0.1.0"
+description = "A powerful agent orchestration framework"
+authors = [{ name = "Ameen Alam", email = "ameen@panaversity.org" }]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "typer>=0.9.0",
+    "redis>=5.0.1",
+    "psycopg2-binary>=2.9.9",
+    "prometheus-client>=0.19.0",
+    "python-dotenv>=1.0.0",
+    "langgraph>=0.0.15",
+    "pydantic>=2.6.1",
+    "pydantic-settings>=2.1.0",
+    "pytest>=8.0.0",
+]
+requires-python = ">=3.12"
+
+[project.scripts]
+ao = "agentorchestrator.cli.main:app"
+ao-serve = "main:run_server"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312" 
