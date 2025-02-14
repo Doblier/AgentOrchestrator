@@ -1,4 +1,4 @@
-# AgentOrchestrator
+# Agent Orchestrator
 
 AgentOrchestrator is an open‑source, production‑grade tool for deploying and orchestrating agentic applications on any container platform—whether in the cloud, on‑premises, or via serverless containers. Inspired by the robust capabilities of platforms like LangGraph Cloud, AgentOrchestrator offers:
 
