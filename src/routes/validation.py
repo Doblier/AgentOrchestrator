@@ -1,19 +1,21 @@
-from typing import Any, Union, Dict, TypeVar
+"""Input validation for agent routes."""
+from typing import Any, Union, Dict
 from pydantic import BaseModel, ValidationError
 
-T = TypeVar('T', str, Dict[str, Any])
 
 class TopicInput(BaseModel):
     """Input model for topic-based agents."""
     topic: str
 
-class ValidationResult(BaseModel):
-    """Standard validation result model."""
-    success: bool
-    data: T
-    error: str | None = None
 
-def validate_route_input(route_name: str, input_data: Any) -> T:
+class AgentValidationError(Exception):
+    """Custom exception for agent input validation errors."""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+
+def validate_route_input(route_name: str, input_data: Any) -> Union[str, Dict[str, Any]]:
     """Validate input data based on route name.
     
     Args:
@@ -24,18 +26,33 @@ def validate_route_input(route_name: str, input_data: Any) -> T:
         Validated and typed input data
         
     Raises:
-        ValidationError: If input data is invalid
+        AgentValidationError: If input validation fails
     """
-    if route_name == "fun_fact_city":
-        if not isinstance(input_data, str):
-            raise ValidationError("Input must be a string (country name) for fun_fact_city route")
-        return input_data
-    
-    elif route_name == "cityfacts":
-        if not isinstance(input_data, dict):
-            raise ValidationError("Input must be a dictionary with 'topic' key for cityfacts route")
-        validated_data = TopicInput(**input_data)
-        return validated_data.model_dump()
-    
-    else:
-        raise ValueError(f"Unknown route: {route_name}") 
+    try:
+        if route_name == "fun_fact_city":
+            if not isinstance(input_data, str):
+                raise AgentValidationError(
+                    "Invalid input: Expected a string (country name) for fun_fact_city route"
+                )
+            return input_data
+        
+        elif route_name == "cityfacts":
+            if not isinstance(input_data, dict):
+                raise AgentValidationError(
+                    "Invalid input: Expected a dictionary with 'topic' key for cityfacts route"
+                )
+            try:
+                validated_data = TopicInput(**input_data)
+                return validated_data.model_dump()
+            except ValidationError as e:
+                raise AgentValidationError(
+                    f"Invalid input structure: {str(e)}"
+                )
+        
+        else:
+            raise AgentValidationError(f"Unknown route: {route_name}")
+            
+    except Exception as e:
+        if isinstance(e, AgentValidationError):
+            raise
+        raise AgentValidationError(f"Validation error: {str(e)}") 

@@ -17,6 +17,7 @@ from typing import Dict, Any, Type, Callable, Union, List
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, create_model, Field
+from src.routes.validation import AgentValidationError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -146,11 +147,17 @@ def create_execute_function(name: str, module: Any) -> Callable:
             result = module.run_workflow.invoke(input_data)
             return AgentResponse(success=True, data=result)
             
+        except AgentValidationError as e:
+            logger.warning(f"Validation error in agent {name}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
         except Exception as e:
             logger.error(f"Error executing agent {name}: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e)
+                detail=f"Internal server error: {str(e)}"
             )
     
     execute_agent.__name__ = f"execute_{name}"
