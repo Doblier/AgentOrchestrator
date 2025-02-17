@@ -13,19 +13,39 @@ import os
 import sys
 import json
 import logging
-from typing import Dict, Any, Type, Callable, Union
+from typing import Dict, Any, Type, Callable, Union, List
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, create_model, Field
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 class AgentResponse(BaseModel):
     """Standard response model for all agents."""
-    success: bool
-    data: Dict[str, Any]
-    error: str | None = None
+    success: bool = Field(
+        description="Whether the agent execution was successful"
+    )
+    data: Dict[str, Any] = Field(
+        description="The output data from the agent workflow"
+    )
+    error: str | None = Field(
+        default=None,
+        description="Error message if the execution failed"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "data": {
+                    "fun_fact": "Example fun fact about a city",
+                    "city": "Example City",
+                    "country": "Example Country"
+                },
+                "error": None
+            }
+        }
 
 def discover_agents() -> Dict[str, Any]:
     """Discover all agent modules in src/routes directory."""
@@ -69,9 +89,52 @@ def discover_agents() -> Dict[str, Any]:
     
     return agents
 
+def get_agent_description(module: Any) -> str:
+    """Extract agent description from module docstring."""
+    if module.__doc__:
+        return module.__doc__.strip()
+    return "No description available"
+
+def get_agent_examples(agent_name: str) -> Dict[str, Any]:
+    """Get example inputs for an agent."""
+    examples = {
+        "fun_fact_city": {
+            "summary": "Get fun fact about a city in a country",
+            "description": "Returns a random city and fun fact from the specified country",
+            "value": "Pakistan"
+        },
+        "cityfacts": {
+            "summary": "Generate a poem about a topic",
+            "description": "Generates a poem with random number of sentences about the given topic",
+            "value": {"topic": "Vertical AI Agents"}
+        }
+    }
+    return examples.get(agent_name, {
+        "summary": "Example input",
+        "description": "Example input for this agent",
+        "value": "example"
+    })
+
 def create_execute_function(name: str, module: Any) -> Callable:
     """Create an execution function for the agent."""
-    async def execute_agent(input: str = Query(..., description=f"Input for {name} agent")):
+    async def execute_agent(
+        input: str = Query(
+            ...,
+            description=get_agent_description(module),
+            examples=[get_agent_examples(name)]
+        )
+    ):
+        """Execute the agent workflow.
+        
+        Args:
+            input: Input data for the agent. Can be a string or JSON object depending on the agent.
+            
+        Returns:
+            AgentResponse: The standardized response containing the workflow result
+            
+        Raises:
+            HTTPException: If the workflow execution fails
+        """
         try:
             # Parse input as JSON if possible
             try:
@@ -104,19 +167,38 @@ def create_dynamic_router() -> APIRouter:
     if not agents:
         return APIRouter()
     
-    router = APIRouter()
+    router = APIRouter(
+        prefix="/agent",
+        tags=["Agents"],
+        responses={
+            status.HTTP_500_INTERNAL_SERVER_ERROR: {
+                "description": "Internal server error",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": "Error message"
+                        }
+                    }
+                }
+            }
+        }
+    )
+    
     for agent_name, agent_module in agents.items():
         try:
             handler = create_execute_function(agent_name, agent_module)
             
             router.add_api_route(
-                f"/agent/{agent_name}",
+                f"/{agent_name}",
                 handler,
                 response_model=AgentResponse,
-                methods=["GET"]
+                methods=["GET"],
+                summary=f"Execute {agent_name} agent",
+                description=get_agent_description(agent_module),
+                response_description="The agent workflow result"
             )
             
-            logger.info(f"Registered route: /api/v1/agent/{agent_name} [GET]")
+            logger.info(f"Registered route: /agent/{agent_name} [GET]")
         except Exception as e:
             logger.error(f"Failed to register route for {agent_name}: {str(e)}", exc_info=True)
     
