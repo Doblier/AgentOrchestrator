@@ -19,7 +19,7 @@ If you discover a security vulnerability, please follow these steps:
    Please do not open a public issue or disclose the vulnerability on social media or any public forum.
 
 2. **Email Us:**  
-   Send an email to [security@panaversity.org](mailto:security@panaversity.org) with the following details:
+   Send an email to [security@doblier.io](mailto:security@doblier.io) with the following details:
    - A clear description of the vulnerability.
    - Steps to reproduce the issue.
    - Any potential impact or severity assessment.
@@ -39,4 +39,4 @@ While we take all reported security issues seriously, please note that AgentOrch
 
 ---
 
-For any security-related questions, please contact us directly at [security@panaversity.org](mailto:security@panaversity.org).
+For any security-related questions, please contact us directly at [security@doblier.io](mailto:security@doblier.io).

@@ -2,7 +2,7 @@
 name = "agentorchestrator"
 version = "0.1.0"
 description = "A powerful agent orchestration framework"
-authors = [{ name = "Ameen Alam", email = "ameen@panaversity.org" }]
+authors = [{ name = "Ameen Alam", email = "ameen@doblier.io" }]
 dependencies = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
