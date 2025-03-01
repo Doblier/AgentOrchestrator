@@ -2,28 +2,13 @@
 API routes for AgentOrchestrator.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from agentorchestrator.api.route_loader import create_dynamic_router
 
-# Create the base router
+# Create the API router
 router = APIRouter(prefix="/api/v1")
-
-
-class HealthCheck(BaseModel):
-    """Health check response model."""
-
-    status: str
-    version: str
-
-
-@router.get("/health", response_model=HealthCheck)
-async def health_check():
-    """Health check endpoint."""
-    from agentorchestrator import __version__
-
-    return HealthCheck(status="healthy", version=__version__)
 
 
 @router.get("/tools")

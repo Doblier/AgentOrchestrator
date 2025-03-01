@@ -25,7 +25,8 @@ from agentorchestrator.middleware.cache import ResponseCache, CacheConfig
 from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig
 from agentorchestrator.middleware.metrics import MetricsMiddleware, MetricsConfig
 from agentorchestrator.batch.processor import BatchProcessor
-from agentorchestrator.api.routes import router as base_router
+from agentorchestrator.api.routes import router as api_router
+from agentorchestrator.api.base import router as base_router
 
 # Load environment variables
 env_path = Path(".env")
@@ -231,12 +232,11 @@ metrics_config = MetricsConfig(
 )
 app.add_middleware(MetricsMiddleware, config=metrics_config)
 
-# Include API routes
-router = create_dynamic_router()
 # Add security dependency to all routes
-for route in router.routes:
+for route in api_router.routes:
     route.dependencies.append(Depends(get_api_key))
-app.include_router(router, prefix="/api/v1")
+
+app.include_router(api_router)
 
 # Include the base router which has the health endpoint
 app.include_router(base_router)
