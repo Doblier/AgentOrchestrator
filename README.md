@@ -1,86 +1,169 @@
-# Agent Orchestrator
+# AgentOrchestrator
 
-AgentOrchestrator is an open‑source, production‑grade tool for deploying and orchestrating agentic applications on any container platform—whether in the cloud, on‑premises, or via serverless containers. Inspired by the robust capabilities of platforms like LangGraph Cloud, AgentOrchestrator offers:
+![AgentOrchestrator Banner](https://via.placeholder.com/800x200?text=AgentOrchestrator)
 
-- **Persistence & Data Storage:** Supports both short‑term and long‑term memory via integrated databases and caching.
-- **Human‑in‑the‑Loop (HITL):** Easily pause and resume workflows with manual intervention.
-- **Observability & Self‑Healing:** Built‑in logging, metrics, and error recovery mechanisms for production‑grade reliability.
-- **Inter‑Agent Communication:** Seamless protocols to enable collaboration between agents, APIs, and human operators.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![UV](https://img.shields.io/badge/package%20manager-uv-green.svg)](https://github.com/astral-sh/uv)
 
-## Features
+**AgentOrchestrator**: A powerful, production-grade framework for deploying AI agents anywhere - cloud, serverless, containers, or local development environments.
 
-- **Unified Deployment CLI:** Build, containerize, and deploy agentic workflows with a single command.
-- **Modular Architecture:** Easily extend or integrate with other agentic frameworks (e.g., LangGraph, CrewAI).
-- **State Management:** Persistent state storage and checkpointing for context‑aware interactions.
-- **Scalability:** Support for docker‑compose for local development and Kubernetes for scalable production deployments.
-- **Extensible Monitoring:** Integrate with Prometheus, Grafana, and other observability tools.
+## 🚀 Quick Start (5 minutes)
 
-## Getting Started
+### Local Development
 
-### Prerequisites
+```bash
+# Clone the repository
+git clone https://github.com/your-username/AgentOrchestrator.git
+cd AgentOrchestrator
 
-- UV package manager 
-- Docker and docker‑compose installed on your development machine.
-- Python 3.12 or later.
-- Familiarity with container orchestration and basic DevOps practices.
+# Set up environment with UV
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-### Installation
+# Install dependencies
+uv pip install -e .
 
-1. **Clone the repository:**
+# Set up your .env file (copy from example)
+cp .env.example .env
 
-   ```bash
-   git clone https://github.com/panaversity/AgentOrchestrator.git
-   cd AgentOrchestrator
-   ```
+# Run the server
+python main.py
+```
 
-2. **Sync:**
+Your server is now running at http://localhost:8000! 🎉
 
-    ```bash
-      uv sync
-3. Run Project
-    ```bash
-      uv run ao-serve
-    ```
-### Usage
-- Build the Docker Image:
+### Using Docker (even faster)
 
-    ```bash
-      agent-orchestrator build --image-tag agent-orchestrator:latest      
-    ```
+```bash
+# Clone the repository
+git clone https://github.com/your-username/AgentOrchestrator.git
+cd AgentOrchestrator
 
-- Deploy Locally with docker‑compose:
+# Windows PowerShell
+.\scripts\run_environments.ps1 -Environment dev -Build
 
-    ```bash
-      docker-compose up -d
-    ```
+# Linux/macOS
+./scripts/run_environments.sh dev --build
+```
 
-- Deploy to Kubernetes:
-Use the provided Kubernetes YAML templates in the k8s/ directory:
+The development environment will be available at http://localhost:8000.
 
-    ```bash
-    kubectl apply -f k8s/deployment.yaml
-    ```
+## 🤖 Create Your First Agent (2 minutes)
 
-- Configure HITL & Monitoring:
-Customize environment variables in the .env file for database connections, API keys, and monitoring endpoints.
+1. Create a new directory in `src/routes/my_first_agent/`
+2. Create a file `ao_agent.py` with this template:
 
-## Roadmap
-- Short‑Term:
-  - Finalize CLI and container build routines.
-  - Add support for local state management and HITL interfaces.
-  - Build comprehensive unit and integration tests.
+```python
+from typing import Dict, Any
+from langgraph.func import entrypoint, task
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-- Long‑Term:
-  - Extend support to additional agentic frameworks (e.g., CrewAI).
-  - Integrate with managed container orchestration (Kubernetes, serverless).
-  - Enhance observability with native Prometheus metrics and Grafana dashboards.
+model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 
-## Contributing
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on our code of conduct, submission guidelines, and how to get started.
+@task
+def generate_greeting(name: str) -> str:
+    response = model.invoke(f"Generate a friendly greeting for {name}")
+    return response.content
 
-## License
-This project is licensed under the MIT License – see the [LICENSE](./LICENSE) file for details.
+@entrypoint()
+def run_workflow(name: str) -> Dict[str, Any]:
+    greeting = generate_greeting(name).result()
+    return {"greeting": greeting, "name": name}
+```
 
-## Contact
-For questions or suggestions, please open an issue or reach out via email at ticket@panaversity.org
+3. Test your agent:
+```
+GET http://localhost:8000/api/v1/agent/my_first_agent?input=John
+```
+
+That's it! Your first AI agent is up and running.
+
+## 🐳 Running Different Environments
+
+AgentOrchestrator supports multiple environments through Docker:
+
+```bash
+# Windows PowerShell
+# Development environment (hot-reloading)
+.\scripts\run_environments.ps1 -Environment dev
+
+# Testing environment (runs tests)
+.\scripts\run_environments.ps1 -Environment test
+
+# UAT environment (pre-production)
+.\scripts\run_environments.ps1 -Environment uat
+
+# Production environment
+.\scripts\run_environments.ps1 -Environment prod
+
+# Linux/macOS
+# Development environment (hot-reloading)
+./scripts/run_environments.sh dev
+
+# Testing environment (runs tests)
+./scripts/run_environments.sh test
+
+# UAT environment (pre-production)
+./scripts/run_environments.sh uat
+
+# Production environment
+./scripts/run_environments.sh prod
+```
+
+Access environments at:
+- Development: http://localhost:8000
+- UAT: http://localhost:8001
+- Production: http://localhost:8000
+
+For more details, see the [Docker Environments Guide](docs/docker_environments.md).
+
+## 🔥 Key Features
+
+- **Deploy Anywhere**: Cloud, serverless functions, containers or locally
+- **Stateless Architecture**: Horizontally scalable with no shared state
+- **Flexible Agent System**: Support for any LLM via LangChain, LlamaIndex, etc.
+- **Enterprise Ready**: Authentication, rate limiting, caching, and metrics built-in
+- **Developer Friendly**: Automatic API generation, hot-reloading, and useful error messages
+
+## 🛣️ Roadmap
+
+- [x] Core framework
+- [x] Dynamic agent discovery
+- [x] API generation
+- [ ] Agent marketplace
+- [ ] Enterprise security features
+- [ ] Managed cloud offering
+
+## 📚 Documentation
+
+- [Getting Started Guide](docs/getting-started.md)
+- [Creating Agents](docs/creating-agents.md)
+- [Deployment Options](docs/deployment.md)
+- [API Reference](docs/api-reference.md)
+- [Docker Environments Guide](docs/docker_environments.md)
+- [Environment Management](docs/environment_management.md)
+- [Examples](examples/README.md)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+See our [Contributing Guidelines](CONTRIBUTING.md) for more information.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgements
+
+- [LangChain](https://github.com/langchain-ai/langchain) for the LLM integration tools
+- [FastAPI](https://fastapi.tiangolo.com/) for the lightning-fast API framework
+- [UV](https://github.com/astral-sh/uv) for the modern Python package management
 

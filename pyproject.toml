@@ -14,15 +14,48 @@ dependencies = [
     "langgraph>=0.0.15",
     "pydantic>=2.6.1",
     "pydantic-settings>=2.1.0",
-    "pytest>=8.0.0",
     "langchain-google-genai>=0.0.11",
     "langchain-core>=0.1.31",
 ]
 requires-python = ">=3.12"
 
+# Development dependencies
+[project.optional-dependencies]
+dev = [
+    "watchdog>=3.0.0",
+    "ruff>=0.1.6",
+    "black>=23.11.0",
+    "pytest>=8.0.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    "ipython>=8.17.2",
+]
+
+# Testing dependencies
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.2",
+    "httpx>=0.25.2",
+    "pytest-cov>=4.1.0",
+]
+
+# Documentation dependencies
+docs = [
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.4.14",
+    "mkdocstrings[python]>=0.23.0",
+]
+
+# Production dependencies - minimal for deployment
+prod = []
+
 [project.scripts]
+# CLI commands
 ao = "agentorchestrator.cli.main:app"
-ao-serve = "main:run_server"
+ao-serve = "agentorchestrator.cli.main:serve_command"
+ao-build = "agentorchestrator.cli.main:build_command"
+ao-dev = "agentorchestrator.cli.main:dev_command"
+ao-test = "agentorchestrator.cli.main:test_command"
 
 [build-system]
 requires = ["hatchling"]

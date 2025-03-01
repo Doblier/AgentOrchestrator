@@ -1,0 +1,33 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install curl for healthchecks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install uv
+
+# Copy project files
+COPY pyproject.toml .
+COPY requirements.docker.txt .
+COPY agentorchestrator/ agentorchestrator/
+COPY src/ src/
+COPY main.py .
+COPY tests/ tests/
+
+# Install dependencies
+RUN uv pip install --system -r requirements.docker.txt
+
+# Create command alias for ao-test
+# RUN echo '#!/bin/bash\npython -m pytest "$@"' > /usr/local/bin/ao-test && \
+#     chmod +x /usr/local/bin/ao-test
+
+# Default command runs tests
+CMD ["python", "-m", "pytest"] 

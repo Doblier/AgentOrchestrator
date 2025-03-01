@@ -1,0 +1,107 @@
+version: '3'
+
+services:
+  # Development service - uses local code with hot reloading
+  agentorchestrator-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: ameenalam/agentorchestrator-dev:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["python", "main.py"]
+    profiles: ["dev"]
+
+  # Test service - for running automated tests
+  agentorchestrator-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: ameenalam/agentorchestrator-test:latest
+    env_file:
+      - .env.test
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    command: ["python", "-m", "pytest", "--cov=agentorchestrator", "--cov-report=term"]
+    profiles: ["test"]
+
+  # UAT service - production-like environment for testing
+  agentorchestrator-uat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ameenalam/agentorchestrator-uat:latest
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env.uat
+    volumes:
+      - ./src/routes:/app/src/routes
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["python", "main.py"]
+    profiles: ["uat"]
+
+  # Production service - uses locked dependencies and optimized settings
+  agentorchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ameenalam/agentorchestrator:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./src/routes:/app/src/routes
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Production uses the default CMD from Dockerfile
+    profiles: ["prod"]
+
+  # Redis service used by all environments
+  redis:
+    image: redis:latest
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  redis-data: 

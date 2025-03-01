@@ -1,47 +1,138 @@
 # Contributing to AgentOrchestrator
 
-Thank you for your interest in contributing to AgentOrchestrator! We welcome your feedback, bug reports, feature requests, and pull requests.
+Thank you for your interest in contributing to AgentOrchestrator! This document provides guidelines and instructions for contributing to this project.
 
-## How to Contribute
+## Code of Conduct
 
-### 1. Reporting Issues
+Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md). We expect all contributors to adhere to it.
 
-If you encounter a bug or have a feature request:
-- Check the [Issues](https://github.com/panaversity/AgentOrchestrator/issues) to see if it has already been reported.
-- If not, please open a new issue, providing as much detail as possible (steps to reproduce, expected vs. actual behavior, and any relevant logs).
+## How Can I Contribute?
 
-### 2. Submitting Pull Requests
+### Reporting Bugs
 
-When you’re ready to submit a pull request (PR):
-- **Fork** the repository.
-- **Create a branch** for your feature or bugfix (e.g., `feature/my-new-feature` or `bugfix/fix-issue-123`).
-- **Commit your changes** with clear commit messages.
-- **Push** your branch to your fork.
-- Open a **pull request** against the `main` branch of this repository.
-- Make sure your code adheres to our coding style and passes all tests.
+When reporting bugs, please include:
 
-### 3. Code Style Guidelines
+1. **Description**: Clear and concise description of the bug
+2. **Reproduction Steps**: Detailed steps to reproduce the issue
+3. **Expected Behavior**: What you expected to happen
+4. **Actual Behavior**: What actually happened
+5. **Environment**: OS, Python version, and dependency versions
 
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) for Python code.
-- Write clear, concise commit messages.
-- Include relevant tests with your changes.
-- Document your code where necessary.
+Please create issues using the Bug Report template.
 
-### 4. Communication
+### Suggesting Enhancements
 
-- Join our community discussions on [GitHub Discussions](https://github.com/panaversity/AgentOrchestrator/discussions) or [Discord](link-to-discord) for real‑time support and collaboration.
-- If you need help, feel free to ask a question in our discussions channel before opening a pull request.
+Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
 
-## Code Review Process
+1. **Use Case**: Clear description of the problem you're trying to solve
+2. **Proposed Solution**: Your idea for implementing the enhancement
+3. **Alternatives Considered**: Any alternative solutions you've considered
 
-- All submissions will be reviewed by project maintainers.
-- You might be asked to make changes before your PR is merged.
-- Please be patient; we strive to respond to contributions as promptly as possible.
+### Contributing Code
 
-## Getting Started
+#### Setting Up Your Development Environment
 
-If you’re new to the project, start by exploring our codebase, reading the documentation, and reviewing open issues. We recommend checking out our [README](README.md) and [Documentation](link-to-docs) for further context.
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/your-username/AgentOrchestrator.git`
+3. Set up your development environment:
+   ```bash
+   cd AgentOrchestrator
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e ".[dev]"
+   ```
 
-Thank you for helping make AgentOrchestrator better!
+#### Making Changes
 
-Happy coding!
+1. Create a new branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+2. Make your changes
+3. Run tests:
+   ```bash
+   pytest
+   ```
+4. Ensure code quality:
+   ```bash
+   ruff check .
+   ```
+5. Update documentation if needed
+
+#### Pull Request Process
+
+1. Update the README.md or documentation with details of changes if applicable
+2. Include tests for new features or bug fixes
+3. Ensure your code passes all tests and lint checks
+4. Submit a pull request to the `main` branch
+
+## Development Guidelines
+
+### Code Style
+
+We follow PEP 8 with a few exceptions:
+
+- Line length: 88 characters (using Black defaults)
+- Use consistent docstrings (Google style)
+
+### Testing
+
+- Write unit tests for new features or bug fixes
+- Keep test coverage above 80%
+- Use pytest for running tests
+
+### Documentation
+
+- Update documentation for new features or changes to existing functionality
+- Follow the established documentation style
+- Create examples for new features
+
+### Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code changes that neither fix bugs nor add features
+- `test`: Adding or updating tests
+- `chore`: Changes to the build process or auxiliary tools
+
+Example: `feat: add support for OpenAI function calling`
+
+## Project Structure
+
+```
+AgentOrchestrator/
+├── agentorchestrator/       # Core framework code
+│   ├── api/                 # API and route handling
+│   ├── middleware/          # Middleware components
+│   ├── state/               # State management
+│   └── tools/               # Agent tools
+├── docs/                    # Documentation
+├── examples/                # Example agents and integrations
+├── kubernetes/              # Kubernetes deployment configs
+├── src/                     # User agent code (not modified by framework)
+│   └── routes/              # Agent routes
+└── tests/                   # Test suite
+```
+
+## Adding New Agents
+
+When contributing new example agents:
+
+1. Create a new directory in `examples/agents/your-agent-name/`
+2. Include proper documentation and examples of how to use it
+3. Follow the established agent pattern (using ao_agent.py)
+4. Avoid adding dependencies unless absolutely necessary
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the project's MIT License.
+
+## Questions?
+
+If you have any questions, feel free to open an issue or reach out to the maintainers.
+
+Thank you for contributing to AgentOrchestrator!
