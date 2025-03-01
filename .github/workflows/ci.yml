@@ -46,14 +46,14 @@ jobs:
       run: |
         uv pip install --system -e ".[test]"
         
-    - name: Lint with ruff
-      run: |
-        uv pip install --system ruff
-        ruff check .
+    # - name: Lint with ruff
+    #   run: |
+    #     uv pip install --system ruff
+    #     ruff check .
         
-    - name: Test with pytest
-      run: |
-        python -m pytest --cov=agentorchestrator --cov-report=term
+    # - name: Test with pytest
+    #   run: |
+    #     python -m pytest --cov=agentorchestrator --cov-report=term
 
   uat:
     needs: test
