@@ -1,6 +1,6 @@
 # AgentOrchestrator
 
-![AgentOrchestrator Banner](./LOGO/ORBIT_LOGO1.jpg)
+<img src="./LOGO/ORBIT_LOGO1.jpg" alt="AgentOrchestrator Banner" width="200" height="200">
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
