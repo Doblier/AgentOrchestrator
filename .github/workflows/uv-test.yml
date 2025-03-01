@@ -1,0 +1,40 @@
+name: UV Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install UV
+        run: |
+          pip install --upgrade pip
+          pip install uv
+      
+      - name: Install dependencies
+        run: |
+          # The --system flag tells UV to install packages at the system level
+          # This avoids the need for a virtual environment in CI
+          uv pip install --system -e ".[test]"
+      
+      - name: Lint with ruff
+        run: |
+          uv pip install --system ruff black
+          ruff check .
+          black --check .
+      
+      - name: Test with pytest
+        run: |
+          python -m pytest 

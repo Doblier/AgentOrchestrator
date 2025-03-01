@@ -1,0 +1,47 @@
+name: Setup Project
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: false
+        default: '3.12'
+        type: string
+      install-extras:
+        required: false
+        default: 'test'
+        type: string
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      
+      - name: Install UV
+        run: |
+          pip install --upgrade pip
+          pip install uv
+      
+      - name: Cache UV dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}-${{ inputs.install-extras }}
+          restore-keys: |
+            ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}-
+            ${{ runner.os }}-uv-
+      
+      - name: Install dependencies
+        run: |
+          if [ "${{ inputs.install-extras }}" != "none" ]; then
+            uv pip install --system -e ".[${{ inputs.install-extras }}]"
+          else
+            uv pip install --system -e .
+          fi 
