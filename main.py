@@ -10,14 +10,11 @@ from pathlib import Path
 import time
 import signal
 import sys
-from typing import Dict, Any
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, status, Security, Depends
 from fastapi.security import APIKeyHeader
-from fastapi.openapi.utils import get_openapi
-from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from redis import Redis
 from redis.exceptions import ConnectionError
@@ -25,7 +22,7 @@ from redis.exceptions import ConnectionError
 from agentorchestrator.api.route_loader import create_dynamic_router
 from agentorchestrator.middleware.rate_limiter import RateLimiter, RateLimitConfig
 from agentorchestrator.middleware.cache import ResponseCache, CacheConfig
-from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig, ApiKey
+from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig
 from agentorchestrator.middleware.metrics import MetricsMiddleware, MetricsConfig
 from agentorchestrator.batch.processor import BatchProcessor
 from agentorchestrator.api.routes import router as base_router
@@ -111,7 +108,7 @@ def create_redis_client(max_retries=5, retry_delay=2):
             client.ping()
             logger.info("Successfully connected to Redis")
             return client
-        except ConnectionError as e:
+        except ConnectionError:
             if attempt == max_retries - 1:
                 logger.error("Failed to connect to Redis after %d attempts", max_retries)
                 raise

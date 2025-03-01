@@ -1,6 +1,6 @@
 """Test cases for cityfacts agent."""
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.routes.cityfacts.ao_agent import workflow
 
 # Mock data for testing

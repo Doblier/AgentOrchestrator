@@ -167,7 +167,7 @@ class MetricsMiddleware:
                 
             return response
             
-        except Exception as e:
+        except Exception:
             # Record error metrics
             self.collector.requests_total.labels(
                 method=method,

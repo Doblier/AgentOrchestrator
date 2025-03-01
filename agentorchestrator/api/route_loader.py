@@ -13,10 +13,10 @@ import os
 import sys
 import json
 import logging
-from typing import Dict, Any, Type, Callable, Union, List
+from typing import Dict, Any, Callable
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, create_model, Field
+from pydantic import BaseModel, Field
 from src.routes.validation import AgentValidationError
 
 # Configure logging

@@ -117,7 +117,7 @@ def create_env(env_name, force=False):
     else:
         print(f"\nTo activate, run: source {activate_script}")
     
-    print(f"\nQuick start with built-in CLI:")
+    print("\nQuick start with built-in CLI:")
     if env_name == "dev":
         print("  ao dev")
     elif env_name == "test":

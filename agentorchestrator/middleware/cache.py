@@ -4,7 +4,7 @@ Implements response caching using Redis.
 """
 import json
 from typing import Optional, Callable, Dict, Any
-from fastapi import Request, Response
+from fastapi import Request
 from redis import Redis
 from pydantic import BaseModel
 from starlette.types import Message

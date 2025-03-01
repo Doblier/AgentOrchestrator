@@ -3,7 +3,6 @@
 Handles batch processing of agent requests with async execution.
 """
 import asyncio
-import json
 import threading
 from typing import List, Dict, Any, Optional
 from datetime import datetime

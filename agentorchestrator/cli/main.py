@@ -8,11 +8,10 @@ import shutil
 from pathlib import Path
 import subprocess
 import typer
-from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from typing import List, Optional
+from typing import List
 
 app = typer.Typer(
     name="agentorchestrator",
@@ -90,7 +89,11 @@ def test(
 ):
     """Run tests with pytest."""
     try:
-        import pytest
+        # Use importlib to check if pytest is available
+        import importlib.util
+        if importlib.util.find_spec("pytest") is None:
+            console.print("[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'")
+            return
     except ImportError:
         console.print("[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'")
         return
@@ -126,7 +129,11 @@ def build(
 ):
     """Build production-ready distribution packages."""
     try:
-        import build as python_build
+        # Use importlib to check if build is available
+        import importlib.util
+        if importlib.util.find_spec("build") is None:
+            console.print("[bold red]Error:[/] build package not found. Installing...")
+            subprocess.run([sys.executable, "-m", "pip", "install", "build"])
     except ImportError:
         console.print("[bold red]Error:[/] build package not found. Installing...")
         subprocess.run([sys.executable, "-m", "pip", "install", "build"])
@@ -225,12 +232,7 @@ def setup_env(
             else:
                 install_cmd = ["uv", "pip", "install", "-e", "."]
             
-            # Use the appropriate Python from the venv
-            if os.name == "nt":  # Windows
-                python_path = os.path.join(venv_dir, "Scripts", "python")
-            else:  # Unix-like
-                python_path = os.path.join(venv_dir, "bin", "python")
-            
+            # Use the appropriate environment
             env = os.environ.copy()
             env["VIRTUAL_ENV"] = os.path.abspath(venv_dir)
             

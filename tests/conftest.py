@@ -2,6 +2,7 @@
 import os
 import sys
 import pytest
+from unittest.mock import MagicMock
 
 # Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
