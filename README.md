@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![UV](https://img.shields.io/badge/package%20manager-uv-green.svg)](https://github.com/astral-sh/uv)
+[![CI](https://github.com/ameen-alam/AgentOrchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/ameen-alam/AgentOrchestrator/actions/workflows/ci.yml)
 
 **AgentOrchestrator**: A powerful, production-grade framework for deploying AI agents anywhere - cloud, serverless, containers, or local development environments.
 
