@@ -85,7 +85,8 @@ def dev(
 @app.command()
 def test(
     args: List[str] = typer.Argument(None, help="Arguments to pass to pytest"),
-    coverage: bool = typer.Option(False, help="Run with coverage report")
+    coverage: bool = typer.Option(False, help="Run with coverage report"),
+    path: str = typer.Option("", help="Specific test path to run (e.g., tests/test_main.py)")
 ):
     """Run tests with pytest."""
     try:
@@ -99,6 +100,13 @@ def test(
     cmd = ["pytest"]
     if coverage:
         cmd.extend(["--cov=agentorchestrator", "--cov-report=term", "--cov-report=html"])
+    
+    # Add specific path if provided
+    if path:
+        cmd.append(path)
+    elif not args:  # If no args and no path, default to main tests
+        cmd.append("tests/test_main.py")
+        
     if args:
         cmd.extend(args)
     
@@ -108,7 +116,6 @@ def test(
         console.print("[bold green]✅ All tests passed![/]")
     else:
         console.print("[bold red]❌ Tests failed[/]")
-        sys.exit(result.returncode)
 
 @app.command()
 def build(

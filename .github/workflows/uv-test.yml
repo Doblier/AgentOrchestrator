@@ -29,12 +29,12 @@ jobs:
           # This avoids the need for a virtual environment in CI
           uv pip install --system -e ".[test]"
       
-      # - name: Lint with ruff
-      #   run: |
-      #     uv pip install --system ruff black
-      #     ruff check .
-      #     black --check .
+      - name: Lint with ruff
+        run: |
+          uv pip install --system ruff black
+          ruff check .
+          black --check .
       
-      # - name: Test with pytest
-      #   run: |
-      #     python -m pytest 
+      - name: Test with pytest
+        run: |
+          python -m pytest 

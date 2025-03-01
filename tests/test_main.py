@@ -23,4 +23,7 @@ def test_health_check():
     """Test the health check endpoint."""
     response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert "status" in response.json()
+    data = response.json()
+    assert "status" in data
+    assert data["status"] == "healthy"
+    assert "version" in data

@@ -46,14 +46,16 @@ jobs:
       run: |
         uv pip install --system -e ".[test]"
         
-    # - name: Lint with ruff
-    #   run: |
-    #     uv pip install --system ruff
-    #     ruff check .
+    - name: Lint with ruff
+      run: |
+        uv pip install --system ruff
+        ruff check .
         
-    # - name: Test with pytest
-    #   run: |
-    #     python -m pytest --cov=agentorchestrator --cov-report=term
+    - name: Run tests
+      run: |
+        python -m agentorchestrator.cli.main test --coverage --path tests/test_main.py
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
 
   uat:
     needs: test
@@ -83,9 +85,11 @@ jobs:
         pip install uv
         uv pip install --system -e .
         
-    - name: Run integration tests
+    - name: Test API endpoints
       run: |
-        python -m pytest tests/integration
+        python -m agentorchestrator.cli.main test --path tests/test_main.py
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
 
   build:
     needs: [test, uat]

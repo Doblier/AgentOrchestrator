@@ -28,6 +28,7 @@ from agentorchestrator.middleware.cache import ResponseCache, CacheConfig
 from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig, ApiKey
 from agentorchestrator.middleware.metrics import MetricsMiddleware, MetricsConfig
 from agentorchestrator.batch.processor import BatchProcessor
+from agentorchestrator.api.routes import router as base_router
 
 # Load environment variables
 env_path = Path(".env")
@@ -224,6 +225,9 @@ router = create_dynamic_router()
 for route in router.routes:
     route.dependencies.append(Depends(get_api_key))
 app.include_router(router, prefix="/api/v1")
+
+# Include the base router which has the health endpoint
+app.include_router(base_router)
 
 @app.get("/", status_code=status.HTTP_200_OK)
 async def read_root():
