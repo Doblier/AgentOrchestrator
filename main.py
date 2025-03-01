@@ -232,9 +232,15 @@ metrics_config = MetricsConfig(
 )
 app.add_middleware(MetricsMiddleware, config=metrics_config)
 
-# Add security dependency to all routes
+# Add security dependency to all routes in the API router
 for route in api_router.routes:
     route.dependencies.append(Depends(get_api_key))
+
+# Add security to dynamic agent routes 
+for route in api_router.routes:
+    if hasattr(route, 'routes'):  # This is a router (like the dynamic_router)
+        for subroute in route.routes:
+            subroute.dependencies.append(Depends(get_api_key))
 
 app.include_router(api_router)
 
