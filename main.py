@@ -19,7 +19,6 @@ from pydantic_settings import BaseSettings
 from redis import Redis
 from redis.exceptions import ConnectionError
 
-from agentorchestrator.api.route_loader import create_dynamic_router
 from agentorchestrator.middleware.rate_limiter import RateLimiter, RateLimitConfig
 from agentorchestrator.middleware.cache import ResponseCache, CacheConfig
 from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig

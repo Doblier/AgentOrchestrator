@@ -2,7 +2,7 @@
 Base API routes for AgentOrchestrator.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 # Create the base router

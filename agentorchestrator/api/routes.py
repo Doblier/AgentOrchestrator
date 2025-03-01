@@ -2,8 +2,7 @@
 API routes for AgentOrchestrator.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 
 from agentorchestrator.api.route_loader import create_dynamic_router
 
