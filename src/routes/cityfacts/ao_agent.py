@@ -30,13 +30,14 @@ model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 
 class WorkflowState(TypedDict):
     """Define the input and output state for the workflow.
-    
+
     Attributes:
         input: Dictionary containing the topic to write about
         sentence_count: Number of sentences in the generated poem
         poem: The generated poem text
         status: Status message about saving the poem
     """
+
     input: Dict[str, Any]  # The input dictionary with topic
     sentence_count: int  # Number of sentences in the poem
     poem: str  # The generated poem
@@ -46,7 +47,7 @@ class WorkflowState(TypedDict):
 @task
 def generate_sentence_count() -> int:
     """Generate a random sentence count for the poem.
-    
+
     Returns:
         int: A random number between 1 and 5
     """
@@ -56,11 +57,11 @@ def generate_sentence_count() -> int:
 @task
 def generate_poem(sentence_count: int, topic: str) -> str:
     """Generate a poem based on the sentence count using the AI model.
-    
+
     Args:
         sentence_count: Number of sentences to include in the poem
         topic: The topic to write the poem about
-        
+
     Returns:
         str: The generated poem text
     """
@@ -73,13 +74,13 @@ def generate_poem(sentence_count: int, topic: str) -> str:
 @task
 def save_poem(poem: str) -> str:
     """Save the poem to a file in a correct directory to avoid path errors.
-    
+
     Args:
         poem: The poem text to save
-        
+
     Returns:
         str: Status message indicating where the poem was saved
-        
+
     Raises:
         IOError: If there's an error creating the directory or saving the file
     """
@@ -96,23 +97,23 @@ def save_poem(poem: str) -> str:
 @entrypoint()
 def workflow(input: Dict[str, Any]) -> Dict[str, Any]:
     """Workflow to generate and save a poem.
-    
+
     Args:
         input: Dictionary containing:
             - topic: The topic to generate a poem about
-            
+
     Returns:
         dict: A dictionary containing:
             - sentence_count: Number of sentences in the poem
             - poem: The generated poem
             - status: Save status message
-            
+
     Raises:
         ValidationError: If the input is not a valid dictionary with a topic key
     """
     # Validate input
     validated_input = validate_route_input("cityfacts", input)
-    
+
     sentence_count = generate_sentence_count().result()
     poem = generate_poem(sentence_count, validated_input["topic"]).result()
     save_status = save_poem(poem).result()

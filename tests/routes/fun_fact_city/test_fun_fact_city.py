@@ -1,4 +1,5 @@
 """Test cases for fun_fact_city agent."""
+
 import pytest
 from unittest.mock import patch
 from src.routes.fun_fact_city.ao_agent import workflow
@@ -14,20 +15,20 @@ def test_workflow_with_valid_input():
     expected_result = {
         "fun_fact": MOCK_FUN_FACT,
         "city": MOCK_CITY,
-        "country": "Pakistan"
+        "country": "Pakistan",
     }
-    
+
     # Mock the workflow's invoke method
-    with patch.object(workflow, 'invoke', return_value=expected_result):
+    with patch.object(workflow, "invoke", return_value=expected_result):
         # Run workflow
         result = workflow.invoke("Pakistan")
-        
+
         # Verify result structure
         assert isinstance(result, dict)
         assert "fun_fact" in result
         assert "city" in result
         assert "country" in result
-        
+
         # Verify values
         assert result["city"] == MOCK_CITY
         assert result["fun_fact"] == MOCK_FUN_FACT
@@ -37,4 +38,4 @@ def test_workflow_with_valid_input():
 def test_workflow_with_invalid_input():
     """Test workflow with invalid input."""
     with pytest.raises(Exception):
-        workflow({"invalid": "input"}) 
+        workflow({"invalid": "input"})

@@ -19,17 +19,18 @@ load_dotenv()
 model = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash-exp",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0.2
+    temperature=0.2,
 )
+
 
 @task
 def answer_question(question: str) -> Dict[str, Any]:
     """
     Generate an answer to the user's question using Gemini AI.
-    
+
     Args:
         question: The natural language question to answer
-        
+
     Returns:
         Dict containing the question, answer, and metadata
     """
@@ -43,11 +44,11 @@ def answer_question(question: str) -> Dict[str, Any]:
     If you're unsure about something, acknowledge the uncertainty rather than making up information.
     When relevant, mention your sources of information.
     """
-    
+
     # Get the response from the model
     response = model.invoke(prompt)
     answer = StrOutputParser().invoke(response)
-    
+
     # Return the question, answer, and metadata
     return {
         "question": question,
@@ -55,20 +56,21 @@ def answer_question(question: str) -> Dict[str, Any]:
         "metadata": {
             "model": "gemini-2.0-flash-exp",
             "temperature": 0.2,
-            "tokens_used": len(answer.split()) * 2  # Rough estimate
-        }
+            "tokens_used": len(answer.split()) * 2,  # Rough estimate
+        },
     }
+
 
 @entrypoint()
 def run_workflow(question: str) -> Dict[str, Any]:
     """
     Main entry point for the question answering workflow.
-    
+
     Args:
         question: The natural language question to answer
-        
+
     Returns:
         Dict containing the question, answer, and metadata
     """
     result = answer_question(question).result()
-    return result 
+    return result
