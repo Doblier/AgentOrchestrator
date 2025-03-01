@@ -47,3 +47,17 @@ backup/
 *_backup
 .env_backup
 
+__pycache__/*
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pywz2
+*.pywz3
+*.pywz4
+*.pywz5
+*.pywz6
+*.pywz7
+*.pywz8
