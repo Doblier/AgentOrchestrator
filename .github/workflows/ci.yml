@@ -51,6 +51,11 @@ jobs:
         uv pip install --system ruff
         ruff check .
         
+    - name: Prepare test environment
+      run: |
+        # Create output directory needed by some tests
+        mkdir -p output
+        
     - name: Run tests
       run: |
         # Now we can run all tests since we've properly mocked the Google API
@@ -84,7 +89,12 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install uv
-        uv pip install --system -e .
+        uv pip install --system -e ".[test]"
+        
+    - name: Prepare test environment
+      run: |
+        # Create output directory needed by some tests
+        mkdir -p output
         
     - name: Test API endpoints
       run: |

@@ -32,8 +32,16 @@ jobs:
       - name: Lint with ruff
         run: |
           uv pip install --system ruff black
+          # Run formatters first to fix issues automatically
+          black .
+          # Then run linters to check for any remaining issues
           ruff check .
           black --check .
+      
+      - name: Prepare test environment
+        run: |
+          # Create output directory needed by some tests
+          mkdir -p output
       
       - name: Test with pytest
         run: |

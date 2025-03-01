@@ -35,8 +35,8 @@ def mock_langchain_gemini():
         mock_response = MagicMock()
         mock_response.content = "This is a mocked response from Gemini AI"
         mock_instance.invoke.return_value = mock_response
-        
+
         # Make the mock class return our configured instance
         mock_class.return_value = mock_instance
-        
+
         yield mock_class
