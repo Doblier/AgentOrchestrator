@@ -21,7 +21,10 @@ from typing import TypedDict
 
 _: bool = load_dotenv(find_dotenv())
 
-model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+# Move model initialization inside functions to make testing easier
+def get_model():
+    """Get the LLM model instance."""
+    return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 
 
 class WorkflowState(TypedDict):
@@ -48,6 +51,7 @@ def generate_city(country: str) -> str:
     Returns:
         str: Name of a random city in the specified country
     """
+    model = get_model()
     response = model.invoke(
         f"""Return the name of a random city in the {country}. Only return the name of the city."""
     )
@@ -65,6 +69,7 @@ def generate_fun_fact(city: str) -> str:
     Returns:
         str: An interesting fun fact about the city
     """
+    model = get_model()
     response = model.invoke(
         f"""Tell me a fun fact about {
                             city}. Only return the fun fact."""

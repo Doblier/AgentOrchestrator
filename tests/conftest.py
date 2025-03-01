@@ -9,6 +9,16 @@ from unittest.mock import MagicMock, patch
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+# Apply mock for Google AI early, before any tests are loaded
+# This prevents errors during test collection
+mock_gemini = MagicMock()
+mock_gemini_response = MagicMock()
+mock_gemini_response.content = "This is a mocked response from Gemini AI"
+mock_gemini.invoke.return_value = mock_gemini_response
+
+# Apply the mock immediately
+patch("langchain_google_genai.ChatGoogleGenerativeAI", return_value=mock_gemini).start()
+os.environ["GOOGLE_API_KEY"] = "test_key"
 
 @pytest.fixture(autouse=True)
 def setup_env(monkeypatch):

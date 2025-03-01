@@ -25,7 +25,10 @@ from ..validation import validate_route_input
 
 _: bool = load_dotenv(find_dotenv())
 
-model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+# Move model initialization inside functions to make the module more testable
+def get_model():
+    """Get the LLM model instance."""
+    return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 
 
 class WorkflowState(TypedDict):
@@ -67,6 +70,9 @@ def generate_poem(sentence_count: int, topic: str) -> str:
     """
     prompt = f"""Write a beautiful and engaging poem about {
         topic} with exactly {sentence_count} sentences."""
+    
+    # Get model instance when needed instead of at module level
+    model = get_model()
     response = model.invoke(prompt)
     return response.content
 

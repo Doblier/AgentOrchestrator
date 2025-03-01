@@ -62,6 +62,10 @@ jobs:
         python -m pytest --cov=agentorchestrator
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://test:test@localhost:5432/test' }}
+        AUTH_DEFAULT_KEY: ${{ secrets.AUTH_DEFAULT_KEY || 'test-api-key' }}
+        REDIS_HOST: ${{ secrets.REDIS_HOST || 'localhost' }}
+        REDIS_PORT: ${{ secrets.REDIS_PORT || '6379' }}
 
   uat:
     needs: test
