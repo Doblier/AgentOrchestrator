@@ -42,7 +42,8 @@ ENV/
 htmlcov/
 
 # Project specific
-output/
+output/*
 backup/
 *_backup
 .env_backup
+
