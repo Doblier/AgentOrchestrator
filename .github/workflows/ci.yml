@@ -53,7 +53,8 @@ jobs:
         
     - name: Run tests
       run: |
-        python -m agentorchestrator.cli.main test --coverage --path tests/test_main.py
+        # Now we can run all tests since we've properly mocked the Google API
+        python -m pytest --cov=agentorchestrator
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
 
@@ -87,7 +88,8 @@ jobs:
         
     - name: Test API endpoints
       run: |
-        python -m agentorchestrator.cli.main test --path tests/test_main.py
+        # Run integration tests to verify API endpoints
+        python -m pytest tests/test_main.py tests/integration
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
 
@@ -115,7 +117,7 @@ jobs:
         
     - name: Generate locked requirements
       run: |
-        uv pip compile pyproject.toml --python-version=3.12 --no-dev --output-file=requirements.lock
+        uv pip compile pyproject.toml --python-version=3.12 --no-deps --output-file=requirements.lock
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2

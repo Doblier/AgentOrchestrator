@@ -188,7 +188,7 @@ def lock_dependencies(output_file="requirements.lock"):
         "compile",
         "pyproject.toml",
         "--python-version=3.12",
-        "--no-dev",
+        "--no-deps",
         "--output-file",
         output_file,
     ]
