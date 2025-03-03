@@ -1,13 +1,13 @@
-# AgentOrchestrator
+# AORBIT
 
-![AgentOrchestrator Banner](https://via.placeholder.com/800x200?text=AgentOrchestrator)
+![AORBIT Banner](https://via.placeholder.com/800x200?text=AORBIT)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![UV](https://img.shields.io/badge/package%20manager-uv-green.svg)](https://github.com/astral-sh/uv)
 [![CI](https://github.com/ameen-alam/AgentOrchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/ameen-alam/AgentOrchestrator/actions/workflows/ci.yml)
 
-**AgentOrchestrator**: A powerful, production-grade framework for deploying AI agents anywhere - cloud, serverless, containers, or local development environments.
+**AORBIT**: A powerful, production-grade framework for deploying AI agents with enterprise-grade security - perfect for financial applications and sensitive data processing.
 
 ## 🚀 Quick Start (5 minutes)
 
@@ -15,8 +15,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/AgentOrchestrator.git
-cd AgentOrchestrator
+git clone https://github.com/your-username/AORBIT.git
+cd AORBIT
 
 # Set up environment with UV
 uv venv
@@ -38,8 +38,8 @@ Your server is now running at http://localhost:8000! 🎉
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/AgentOrchestrator.git
-cd AgentOrchestrator
+git clone https://github.com/your-username/AORBIT.git
+cd AORBIT
 
 # Windows PowerShell
 .\scripts\run_environments.ps1 -Environment dev -Build
@@ -80,9 +80,26 @@ GET http://localhost:8000/api/v1/agent/my_first_agent?input=John
 
 That's it! Your first AI agent is up and running.
 
+## 🔒 Enterprise Security Framework
+
+AORBIT includes a comprehensive enterprise-grade security framework designed for financial applications:
+
+- **Role-Based Access Control (RBAC)**: Fine-grained permission management with hierarchical roles
+- **Comprehensive Audit Logging**: Immutable audit trail for all system activities
+- **Data Encryption**: Both at-rest and in-transit encryption for sensitive data
+- **API Key Management**: Enhanced API keys with role assignments and IP restrictions
+
+To enable the security framework, simply set the following in your `.env` file:
+
+```
+SECURITY_ENABLED=true
+```
+
+For detailed information, see the [Security Framework Documentation](docs/security_framework.md).
+
 ## 🐳 Running Different Environments
 
-AgentOrchestrator supports multiple environments through Docker:
+AORBIT supports multiple environments through Docker:
 
 ```bash
 # Windows PowerShell
@@ -124,7 +141,8 @@ For more details, see the [Docker Environments Guide](docs/docker_environments.m
 - **Deploy Anywhere**: Cloud, serverless functions, containers or locally
 - **Stateless Architecture**: Horizontally scalable with no shared state
 - **Flexible Agent System**: Support for any LLM via LangChain, LlamaIndex, etc.
-- **Enterprise Ready**: Authentication, rate limiting, caching, and metrics built-in
+- **Enterprise Ready**: Authentication, RBAC, audit logging, encryption, and metrics built-in
+- **Financial Applications**: Designed for sensitive data processing and compliance requirements
 - **Developer Friendly**: Automatic API generation, hot-reloading, and useful error messages
 
 ## 🛣️ Roadmap
@@ -132,14 +150,15 @@ For more details, see the [Docker Environments Guide](docs/docker_environments.m
 - [x] Core framework
 - [x] Dynamic agent discovery
 - [x] API generation
+- [x] Enterprise security features
 - [ ] Agent marketplace
-- [ ] Enterprise security features
 - [ ] Managed cloud offering
 
 ## 📚 Documentation
 
 - [Getting Started Guide](docs/getting-started.md)
 - [Creating Agents](docs/creating-agents.md)
+- [Security Framework](docs/security_framework.md)
 - [Deployment Options](docs/deployment.md)
 - [API Reference](docs/api-reference.md)
 - [Docker Environments Guide](docs/docker_environments.md)

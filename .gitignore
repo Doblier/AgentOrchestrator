@@ -26,6 +26,10 @@ wheels/
 .env.uat
 .env.dev
 .venv
+.venv-dev
+.venv-uat
+.venv-test
+.venv-prod
 env/
 venv/
 ENV/

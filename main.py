@@ -45,7 +45,7 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 class Settings(BaseSettings):
     """Application settings."""
 
-    app_name: str = "AgentOrchestrator"
+    app_name: str = "AORBIT"
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
@@ -129,11 +129,29 @@ def create_redis_client(max_retries=5, retry_delay=2):
 # Create Redis client
 try:
     redis_client = create_redis_client()
+    if not redis_client:
+        logger.error("Failed to create Redis client")
+        raise ConnectionError("Redis client creation failed")
+        
+    # Test connection
+    if not redis_client.ping():
+        logger.error("Redis ping failed")
+        raise ConnectionError("Redis ping failed")
+        
     # Initialize API keys
     initialize_api_keys(redis_client)
     # Create batch processor
     batch_processor = BatchProcessor(redis_client)
-except ConnectionError:
+    logger.info("Redis features initialized successfully")
+except ConnectionError as e:
+    logger.error(f"Redis connection error: {str(e)}")
+    logger.warning(
+        "Starting without Redis features (auth, cache, rate limiting, batch processing)"
+    )
+    redis_client = None
+    batch_processor = None
+except Exception as e:
+    logger.error(f"Unexpected error during Redis initialization: {str(e)}")
     logger.warning(
         "Starting without Redis features (auth, cache, rate limiting, batch processing)"
     )
@@ -156,8 +174,18 @@ signal.signal(signal.SIGTERM, handle_shutdown)
 async def lifespan(app: FastAPI):
     """Lifespan events for the FastAPI application."""
     # Startup
-    logger.info("Starting AgentOrchestrator...")
+    logger.info("Starting AORBIT...")
 
+    # Initialize enterprise security framework
+    if redis_client:
+        from agentorchestrator.security.integration import initialize_security
+        security = initialize_security(redis_client)
+        app.state.security = security
+        logger.info("Enterprise security framework initialized")
+    else:
+        logger.warning("Redis client not available, security features will be limited")
+
+    # Start batch processor if available
     if batch_processor:
         # Start batch processor
         async def get_workflow_func(agent_name: str):
@@ -173,10 +201,13 @@ async def lifespan(app: FastAPI):
         await batch_processor.start_processing(get_workflow_func)
         logger.info("Batch processor started")
 
+    # Startup complete
     yield
 
     # Shutdown
-    logger.info("Shutting down AgentOrchestrator...")
+    logger.info("Shutting down AORBIT...")
+    
+    # Stop batch processor if it was started
     if batch_processor:
         await batch_processor.stop_processing()
         logger.info("Batch processor stopped")
@@ -184,11 +215,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="A powerful agent orchestration framework",
-    version="0.1.0",
+    description="A powerful agent orchestration framework for financial applications",
+    version="0.2.0",
     debug=settings.debug,
     lifespan=lifespan,
-    openapi_tags=[{"name": "Agents", "description": "Agent workflow operations"}],
+    openapi_tags=[
+        {"name": "Agents", "description": "Agent workflow operations"}, 
+        {"name": "Finance", "description": "Financial operations"}
+    ],
 )
 
 # Add security scheme to OpenAPI
@@ -205,6 +239,15 @@ if redis_client:
     auth_config = AuthConfig(
         enabled=os.getenv("AUTH_ENABLED", "true").lower() == "true",
         api_key_header=API_KEY_NAME,
+        public_paths=[
+            "/",
+            "/api/v1/health",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/openapi.json/",
+            "/metrics",
+        ]
     )
 
     rate_limit_config = RateLimitConfig(
@@ -219,7 +262,7 @@ if redis_client:
         excluded_paths=["/api/v1/health", "/metrics"],
     )
 
-    # Add middlewares in correct order
+    # Add middlewares in correct order - auth must be first
     app.add_middleware(AuthMiddleware, redis_client=redis_client, config=auth_config)
     app.add_middleware(RateLimiter, redis_client=redis_client, config=rate_limit_config)
     app.add_middleware(ResponseCache, redis_client=redis_client, config=cache_config)
@@ -230,6 +273,13 @@ metrics_config = MetricsConfig(
     prefix=os.getenv("METRICS_PREFIX", "ao"),
 )
 app.add_middleware(MetricsMiddleware, config=metrics_config)
+
+# Initialize enterprise security framework after middleware setup
+if redis_client:
+    from agentorchestrator.security.integration import initialize_security
+    security = initialize_security(redis_client)
+    app.state.security = security
+    logger.info("Enterprise security framework initialized")
 
 # Add security dependency to all routes in the API router
 for route in api_router.routes:
@@ -250,7 +300,7 @@ app.include_router(base_router)
 @app.get("/", status_code=status.HTTP_200_OK)
 async def read_root():
     """Root endpoint."""
-    return {"message": "Welcome to AgentOrchestrator"}
+    return {"message": "Welcome to AORBIT"}
 
 
 def run_server():

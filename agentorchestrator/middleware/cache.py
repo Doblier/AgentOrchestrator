@@ -36,7 +36,19 @@ class ResponseCache:
         self.redis = redis_client
         self.config = config or CacheConfig()
 
-    def _get_cache_key(self, request: Request) -> str:
+    async def _get_request_body(self, request: Request) -> str:
+        """Get request body as string.
+        
+        Args:
+            request: FastAPI request
+            
+        Returns:
+            str: Request body as string
+        """
+        body = await request.body()
+        return body.decode() if body else ""
+
+    async def _get_cache_key(self, request: Request) -> str:
         """Generate cache key from request.
 
         Args:
@@ -45,7 +57,15 @@ class ResponseCache:
         Returns:
             str: Cache key
         """
-        return f"cache:{request.method}:{request.url.path}:{request.query_params}"
+        # Include API key in cache key to ensure different keys get different caches
+        api_key = request.headers.get("X-API-Key", "")
+        
+        # For POST/PUT requests, include body in cache key
+        body = ""
+        if request.method in ["POST", "PUT"]:
+            body = await self._get_request_body(request)
+            
+        return f"cache:{api_key}:{request.method}:{request.url.path}:{request.query_params}:{body}"
 
     async def get_cached_response(self, request: Request) -> Optional[Dict[str, Any]]:
         """Get cached response if available.
@@ -62,7 +82,7 @@ class ResponseCache:
         if request.url.path in self.config.excluded_paths:
             return None
 
-        key = self._get_cache_key(request)
+        key = await self._get_cache_key(request)
         cached = self.redis.get(key)
 
         if cached:
@@ -84,7 +104,7 @@ class ResponseCache:
         if request.url.path in self.config.excluded_paths:
             return
 
-        key = self._get_cache_key(request)
+        key = await self._get_cache_key(request)
         self.redis.setex(key, self.config.ttl, json.dumps(response_data))
 
     async def __call__(self, scope, receive, send):
@@ -105,7 +125,6 @@ class ResponseCache:
         cached_data = await self.get_cached_response(request)
 
         if cached_data:
-
             async def cached_send(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     message.update(
@@ -123,6 +142,14 @@ class ResponseCache:
 
             return await self.app(scope, receive, cached_send)
 
+        # Store the original request body
+        body = []
+        async def receive_with_store():
+            message = await receive()
+            if message["type"] == "http.request":
+                body.append(message.get("body", b""))
+            return message
+
         response_body = []
         response_headers = []
         response_status = 0
@@ -136,7 +163,7 @@ class ResponseCache:
                 response_body.append(message["body"])
             await send(message)
 
-        await self.app(scope, receive, capture_response)
+        await self.app(scope, receive_with_store, capture_response)
 
         # Only cache successful responses
         if response_status < 400:
