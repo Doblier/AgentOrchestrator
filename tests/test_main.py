@@ -9,20 +9,20 @@ from main import app
 client = TestClient(app)
 
 
-def test_read_root():
+def test_read_root() -> None:
     """Test the root endpoint."""
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Welcome to AORBIT"}
 
 
-def test_app_startup():
+def test_app_startup() -> None:
     """Test application startup configuration."""
     assert app.title == "AORBIT"
     assert app.version == "0.2.0"
 
 
-def test_health_check():
+def test_health_check() -> None:
     """Test the health check endpoint."""
     response = client.get("/api/v1/health")
     assert response.status_code == 200

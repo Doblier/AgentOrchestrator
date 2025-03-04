@@ -2,8 +2,9 @@
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,6 +20,7 @@ mock_gemini.invoke.return_value = mock_gemini_response
 # Apply the mock immediately
 patch("langchain_google_genai.ChatGoogleGenerativeAI", return_value=mock_gemini).start()
 os.environ["GOOGLE_API_KEY"] = "test_key"
+
 
 @pytest.fixture(autouse=True)
 def setup_env(monkeypatch):

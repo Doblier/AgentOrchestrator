@@ -4,10 +4,12 @@ Implements response caching using Redis.
 """
 
 import json
-from typing import Optional, Callable, Dict, Any
+from collections.abc import Callable
+from typing import Any
+
 from fastapi import Request
-from redis import Redis
 from pydantic import BaseModel
+from redis import Redis
 from starlette.types import Message
 
 
@@ -23,7 +25,10 @@ class ResponseCache:
     """Redis-based response cache."""
 
     def __init__(
-        self, app: Callable, redis_client: Redis, config: Optional[CacheConfig] = None
+        self,
+        app: Callable,
+        redis_client: Redis,
+        config: CacheConfig | None = None,
     ):
         """Initialize cache.
 
@@ -38,10 +43,10 @@ class ResponseCache:
 
     async def _get_request_body(self, request: Request) -> str:
         """Get request body as string.
-        
+
         Args:
             request: FastAPI request
-            
+
         Returns:
             str: Request body as string
         """
@@ -59,15 +64,15 @@ class ResponseCache:
         """
         # Include API key in cache key to ensure different keys get different caches
         api_key = request.headers.get("X-API-Key", "")
-        
+
         # For POST/PUT requests, include body in cache key
         body = ""
         if request.method in ["POST", "PUT"]:
             body = await self._get_request_body(request)
-            
+
         return f"cache:{api_key}:{request.method}:{request.url.path}:{request.query_params}:{body}"
 
-    async def get_cached_response(self, request: Request) -> Optional[Dict[str, Any]]:
+    async def get_cached_response(self, request: Request) -> dict[str, Any] | None:
         """Get cached response if available.
 
         Args:
@@ -90,7 +95,9 @@ class ResponseCache:
         return None
 
     async def cache_response(
-        self, request: Request, response_data: Dict[str, Any]
+        self,
+        request: Request,
+        response_data: dict[str, Any],
     ) -> None:
         """Cache response for future requests.
 
@@ -125,6 +132,7 @@ class ResponseCache:
         cached_data = await self.get_cached_response(request)
 
         if cached_data:
+
             async def cached_send(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     message.update(
@@ -134,7 +142,7 @@ class ResponseCache:
                                 (k.encode(), v.encode())
                                 for k, v in cached_data["headers"].items()
                             ],
-                        }
+                        },
                     )
                 elif message["type"] == "http.response.body":
                     message.update({"body": cached_data["content"].encode()})
@@ -144,6 +152,7 @@ class ResponseCache:
 
         # Store the original request body
         body = []
+
         async def receive_with_store():
             message = await receive()
             if message["type"] == "http.request":

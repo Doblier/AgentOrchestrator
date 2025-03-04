@@ -17,13 +17,16 @@ Output: A dictionary containing:
 
 import os
 from random import randint
-from dotenv import load_dotenv, find_dotenv
-from typing import TypedDict, Dict, Any
-from langgraph.func import entrypoint, task
+from typing import Any, TypedDict
+
+from dotenv import find_dotenv, load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.func import entrypoint, task
+
 from ..validation import validate_route_input
 
 _: bool = load_dotenv(find_dotenv())
+
 
 # Move model initialization inside functions to make the module more testable
 def get_model():
@@ -41,7 +44,7 @@ class WorkflowState(TypedDict):
         status: Status message about saving the poem
     """
 
-    input: Dict[str, Any]  # The input dictionary with topic
+    input: dict[str, Any]  # The input dictionary with topic
     sentence_count: int  # Number of sentences in the poem
     poem: str  # The generated poem
     status: str  # Save status message
@@ -68,9 +71,10 @@ def generate_poem(sentence_count: int, topic: str) -> str:
     Returns:
         str: The generated poem text
     """
-    prompt = f"""Write a beautiful and engaging poem about {
-        topic} with exactly {sentence_count} sentences."""
-    
+    prompt = f"""Write a beautiful and engaging poem about {topic} with exactly {
+        sentence_count
+    } sentences."""
+
     # Get model instance when needed instead of at module level
     model = get_model()
     response = model.invoke(prompt)
@@ -101,7 +105,7 @@ def save_poem(poem: str) -> str:
 
 
 @entrypoint()
-def workflow(input: Dict[str, Any]) -> Dict[str, Any]:
+def workflow(input: dict[str, Any]) -> dict[str, Any]:
     """Workflow to generate and save a poem.
 
     Args:

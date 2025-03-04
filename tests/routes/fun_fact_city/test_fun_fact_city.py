@@ -1,7 +1,9 @@
 """Test cases for fun_fact_city agent."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from src.routes.fun_fact_city.ao_agent import workflow
 
 # Mock responses for testing

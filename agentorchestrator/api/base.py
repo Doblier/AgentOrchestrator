@@ -23,10 +23,11 @@ async def health_check():
 
     return HealthCheck(status="healthy", version=__version__)
 
+
 @router.post("/api/v1/logout")
 async def logout(request: Request, response: Response):
     """Logout endpoint to invalidate the current API key session."""
     # The auth middleware will handle the actual invalidation
     # We just need to return a success response
     response.status_code = status.HTTP_200_OK
-    return {"message": "Successfully logged out"} 
+    return {"message": "Successfully logged out"}

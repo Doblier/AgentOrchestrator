@@ -5,9 +5,10 @@ Handles batch processing of agent requests with async execution.
 
 import asyncio
 import threading
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
+
 from pydantic import BaseModel, Field
 from redis import Redis
 
@@ -17,12 +18,12 @@ class BatchJob(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     agent: str
-    inputs: List[Dict[str, Any]]
+    inputs: list[dict[str, Any]]
     status: str = "pending"
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-    results: List[Dict[str, Any]] = []
-    error: Optional[str] = None
+    completed_at: datetime | None = None
+    results: list[dict[str, Any]] = []
+    error: str | None = None
 
 
 class BatchProcessor:
@@ -50,7 +51,7 @@ class BatchProcessor:
         """
         return f"batch:job:{job_id}"
 
-    async def submit_job(self, agent: str, inputs: List[Dict[str, Any]]) -> BatchJob:
+    async def submit_job(self, agent: str, inputs: list[dict[str, Any]]) -> BatchJob:
         """Submit a new batch job.
 
         Args:
@@ -70,7 +71,7 @@ class BatchProcessor:
 
         return job
 
-    async def get_job(self, job_id: str) -> Optional[BatchJob]:
+    async def get_job(self, job_id: str) -> BatchJob | None:
         """Get job status and results.
 
         Args:
@@ -176,7 +177,9 @@ class BatchProcessor:
 
         self._processing = True
         self._processor_thread = threading.Thread(
-            target=self._processor_loop, args=(get_workflow_func,), daemon=True
+            target=self._processor_loop,
+            args=(get_workflow_func,),
+            daemon=True,
         )
         self._processor_thread.start()
 

@@ -2,30 +2,30 @@
 Main entry point for the AgentOrchestrator application.
 """
 
+import json
 import logging
 import os
-import json
-from contextlib import asynccontextmanager
-from pathlib import Path
-import time
 import signal
 import sys
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, status, Security, Depends
+from fastapi import Depends, FastAPI, Security, status
 from fastapi.security import APIKeyHeader
 from pydantic_settings import BaseSettings
 from redis import Redis
 from redis.exceptions import ConnectionError
 
-from agentorchestrator.middleware.rate_limiter import RateLimiter, RateLimitConfig
-from agentorchestrator.middleware.cache import ResponseCache, CacheConfig
-from agentorchestrator.middleware.auth import AuthMiddleware, AuthConfig
-from agentorchestrator.middleware.metrics import MetricsMiddleware, MetricsConfig
-from agentorchestrator.batch.processor import BatchProcessor
-from agentorchestrator.api.routes import router as api_router
 from agentorchestrator.api.base import router as base_router
+from agentorchestrator.api.routes import router as api_router
+from agentorchestrator.batch.processor import BatchProcessor
+from agentorchestrator.middleware.auth import AuthConfig, AuthMiddleware
+from agentorchestrator.middleware.cache import CacheConfig, ResponseCache
+from agentorchestrator.middleware.metrics import MetricsConfig, MetricsMiddleware
+from agentorchestrator.middleware.rate_limiter import RateLimitConfig, RateLimiter
 
 # Load environment variables
 env_path = Path(".env")
@@ -33,7 +33,8 @@ load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,8 @@ def create_redis_client(max_retries=5, retry_delay=2):
         except ConnectionError:
             if attempt == max_retries - 1:
                 logger.error(
-                    "Failed to connect to Redis after %d attempts", max_retries
+                    "Failed to connect to Redis after %d attempts",
+                    max_retries,
                 )
                 raise
             logger.warning(
@@ -132,12 +134,12 @@ try:
     if not redis_client:
         logger.error("Failed to create Redis client")
         raise ConnectionError("Redis client creation failed")
-        
+
     # Test connection
     if not redis_client.ping():
         logger.error("Redis ping failed")
         raise ConnectionError("Redis ping failed")
-        
+
     # Initialize API keys
     initialize_api_keys(redis_client)
     # Create batch processor
@@ -146,14 +148,14 @@ try:
 except ConnectionError as e:
     logger.error(f"Redis connection error: {str(e)}")
     logger.warning(
-        "Starting without Redis features (auth, cache, rate limiting, batch processing)"
+        "Starting without Redis features (auth, cache, rate limiting, batch processing)",
     )
     redis_client = None
     batch_processor = None
 except Exception as e:
     logger.error(f"Unexpected error during Redis initialization: {str(e)}")
     logger.warning(
-        "Starting without Redis features (auth, cache, rate limiting, batch processing)"
+        "Starting without Redis features (auth, cache, rate limiting, batch processing)",
     )
     redis_client = None
     batch_processor = None
@@ -179,6 +181,7 @@ async def lifespan(app: FastAPI):
     # Initialize enterprise security framework
     if redis_client:
         from agentorchestrator.security.integration import initialize_security
+
         security = initialize_security(redis_client)
         app.state.security = security
         logger.info("Enterprise security framework initialized")
@@ -192,7 +195,8 @@ async def lifespan(app: FastAPI):
             """Get workflow function for agent."""
             try:
                 module = __import__(
-                    f"src.routes.{agent_name}.ao_agent", fromlist=["workflow"]
+                    f"src.routes.{agent_name}.ao_agent",
+                    fromlist=["workflow"],
                 )
                 return module.workflow
             except ImportError:
@@ -206,7 +210,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down AORBIT...")
-    
+
     # Stop batch processor if it was started
     if batch_processor:
         await batch_processor.stop_processing()
@@ -220,8 +224,8 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
     openapi_tags=[
-        {"name": "Agents", "description": "Agent workflow operations"}, 
-        {"name": "Finance", "description": "Financial operations"}
+        {"name": "Agents", "description": "Agent workflow operations"},
+        {"name": "Finance", "description": "Financial operations"},
     ],
 )
 
@@ -247,7 +251,7 @@ if redis_client:
             "/openapi.json",
             "/openapi.json/",
             "/metrics",
-        ]
+        ],
     )
 
     rate_limit_config = RateLimitConfig(
@@ -277,6 +281,7 @@ app.add_middleware(MetricsMiddleware, config=metrics_config)
 # Initialize enterprise security framework after middleware setup
 if redis_client:
     from agentorchestrator.security.integration import initialize_security
+
     security = initialize_security(redis_client)
     app.state.security = security
     logger.info("Enterprise security framework initialized")
@@ -285,9 +290,9 @@ if redis_client:
 for route in api_router.routes:
     route.dependencies.append(Depends(get_api_key))
 
-# Add security to dynamic agent routes 
+# Add security to dynamic agent routes
 for route in api_router.routes:
-    if hasattr(route, 'routes'):  # This is a router (like the dynamic_router)
+    if hasattr(route, "routes"):  # This is a router (like the dynamic_router)
         for subroute in route.routes:
             subroute.dependencies.append(Depends(get_api_key))
 

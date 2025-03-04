@@ -2,12 +2,13 @@
 Setup script for AORBIT package.
 """
 
-from setuptools import setup, find_packages
 import os
 import re
 
+from setuptools import find_packages, setup
+
 # Read version from the __init__.py file
-with open(os.path.join("agentorchestrator", "__init__.py"), "r") as f:
+with open(os.path.join("agentorchestrator", "__init__.py")) as f:
     content = f.read()
     version_match = re.search(r'^__version__ = ["\']([^"\']*)["\']', content, re.M)
     if version_match:
@@ -16,7 +17,7 @@ with open(os.path.join("agentorchestrator", "__init__.py"), "r") as f:
         raise RuntimeError("Unable to find version string in __init__.py")
 
 # Read long description from README.md
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README.md", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
@@ -80,4 +81,4 @@ setup(
             "aorbit=agentorchestrator.cli:cli",
         ],
     },
-) 
+)

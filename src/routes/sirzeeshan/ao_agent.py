@@ -1,8 +1,8 @@
-from dotenv import load_dotenv, find_dotenv
-
-from langgraph.func import entrypoint, task
-from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import TypedDict
+
+from dotenv import find_dotenv, load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.func import entrypoint, task
 
 _: bool = load_dotenv(find_dotenv())
 
@@ -28,7 +28,7 @@ def generate_city(country: str) -> str:
     """Generate a random city using an LLM call."""
 
     response = model.invoke(
-        f"""Return the name of a random city in the {country}. Only return the name of the city."""
+        f"""Return the name of a random city in the {country}. Only return the name of the city.""",
     )
     random_city = response.content
     return random_city
@@ -39,8 +39,7 @@ def generate_fun_fact(city: str) -> str:
     """Generate a fun fact about the given city."""
 
     response = model.invoke(
-        f"""Tell me a fun fact about {
-                            city}. Only return the fun fact."""
+        f"""Tell me a fun fact about {city}. Only return the fun fact.""",
     )
     fun_fact = response.content
     return fun_fact

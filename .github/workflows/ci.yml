@@ -47,10 +47,17 @@ jobs:
       run: |
         uv pip install --system -e ".[test]"
         
-    - name: Lint with ruff
-      run: |
-        uv pip install --system ruff
-        ruff check .
+    - name: Lint with Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        version: latest
+        args: check --output-format=github
+        
+    - name: Format with Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        version: latest
+        args: format --check
         
     - name: Prepare test environment
       run: |

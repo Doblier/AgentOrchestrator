@@ -1,6 +1,7 @@
 """Input validation for agent routes."""
 
-from typing import Any, Union, Dict
+from typing import Any
+
 from pydantic import BaseModel, ValidationError
 
 
@@ -19,8 +20,9 @@ class AgentValidationError(Exception):
 
 
 def validate_route_input(
-    route_name: str, input_data: Any
-) -> Union[str, Dict[str, Any]]:
+    route_name: str,
+    input_data: Any,
+) -> str | dict[str, Any]:
     """Validate input data based on route name.
 
     Args:
@@ -37,14 +39,14 @@ def validate_route_input(
         if route_name == "fun_fact_city":
             if not isinstance(input_data, str):
                 raise AgentValidationError(
-                    "Invalid input: Expected a string (country name) for fun_fact_city route"
+                    "Invalid input: Expected a string (country name) for fun_fact_city route",
                 )
             return input_data
 
-        elif route_name == "cityfacts":
+        if route_name == "cityfacts":
             if not isinstance(input_data, dict):
                 raise AgentValidationError(
-                    "Invalid input: Expected a dictionary with 'topic' key for cityfacts route"
+                    "Invalid input: Expected a dictionary with 'topic' key for cityfacts route",
                 )
             try:
                 validated_data = TopicInput(**input_data)

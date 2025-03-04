@@ -3,15 +3,15 @@ Command-line interface for AgentOrchestrator.
 """
 
 import os
-import sys
 import shutil
-from pathlib import Path
 import subprocess
+import sys
+from pathlib import Path
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from typing import List
 
 app = typer.Typer(
     name="agentorchestrator",
@@ -31,7 +31,7 @@ def version():
         Panel.fit(
             f"[bold blue]AgentOrchestrator[/] version: [bold green]{__version__}[/]",
             title="Version Info",
-        )
+        ),
     )
 
 
@@ -63,7 +63,7 @@ def serve(
                 return
 
     console.print(
-        f"[bold green]Starting AgentOrchestrator server ({env} environment)...[/]"
+        f"[bold green]Starting AgentOrchestrator server ({env} environment)...[/]",
     )
 
     import uvicorn
@@ -91,10 +91,11 @@ def dev(
 
 @app.command()
 def test(
-    args: List[str] = typer.Argument(None, help="Arguments to pass to pytest"),
+    args: list[str] = typer.Argument(None, help="Arguments to pass to pytest"),
     coverage: bool = typer.Option(False, help="Run with coverage report"),
     path: str = typer.Option(
-        "", help="Specific test path to run (e.g., tests/test_main.py)"
+        "",
+        help="Specific test path to run (e.g., tests/test_main.py)",
     ),
     security: bool = typer.Option(False, help="Run security tests only"),
     redis_host: str = typer.Option("localhost", help="Redis host for tests"),
@@ -107,12 +108,12 @@ def test(
 
         if importlib.util.find_spec("pytest") is None:
             console.print(
-                "[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'"
+                "[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'",
             )
             return
     except ImportError:
         console.print(
-            "[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'"
+            "[bold red]Error:[/] pytest not found. Install with 'uv add pytest --dev'",
         )
         return
 
@@ -121,27 +122,34 @@ def test(
     cmd = ["pytest"]
     if coverage:
         cmd.extend(
-            ["--cov=agentorchestrator", "--cov-report=term", "--cov-report=html"]
+            ["--cov=agentorchestrator", "--cov-report=term", "--cov-report=html"],
         )
 
     # Add security test configuration
     if security:
-        cmd.extend([
-            "-v",
-            "-m", "security",
-            "--asyncio-mode=strict"
-        ])
+        cmd.extend(
+            [
+                "-v",
+                "-m",
+                "security",
+                "--asyncio-mode=strict",
+            ]
+        )
         # Set security environment variables
-        os.environ.update({
-            "SECURITY_ENABLED": "true",
-            "RBAC_ENABLED": "true",
-            "AUDIT_LOGGING_ENABLED": "true",
-            "ENCRYPTION_ENABLED": "true",
-            "ENCRYPTION_KEY": "test-key-for-encryption",
-            "REDIS_HOST": redis_host,
-            "REDIS_PORT": str(redis_port)
-        })
-        console.print(f"[bold blue]Running security tests with Redis at {redis_host}:{redis_port}[/]")
+        os.environ.update(
+            {
+                "SECURITY_ENABLED": "true",
+                "RBAC_ENABLED": "true",
+                "AUDIT_LOGGING_ENABLED": "true",
+                "ENCRYPTION_ENABLED": "true",
+                "ENCRYPTION_KEY": "test-key-for-encryption",
+                "REDIS_HOST": redis_host,
+                "REDIS_PORT": str(redis_port),
+            }
+        )
+        console.print(
+            f"[bold blue]Running security tests with Redis at {redis_host}:{redis_port}[/]"
+        )
     else:
         cmd.extend(["-v", "-m", "not security"])
 
@@ -213,7 +221,7 @@ def build(
     if result.returncode == 0:
         built_files = list(output_path.glob("*"))
         console.print(
-            f"[bold green]✅ Build successful! {len(built_files)} package(s) created:[/]"
+            f"[bold green]✅ Build successful! {len(built_files)} package(s) created:[/]",
         )
         for file in built_files:
             console.print(f"  - {file.name}")
@@ -234,7 +242,7 @@ def setup_env(
     valid_envs = ["dev", "test", "uat", "prod"]
     if env_type not in valid_envs:
         console.print(
-            f"[bold red]Error:[/] Invalid environment type. Choose from: {', '.join(valid_envs)}"
+            f"[bold red]Error:[/] Invalid environment type. Choose from: {', '.join(valid_envs)}",
         )
         sys.exit(1)
 
@@ -319,7 +327,7 @@ def create_env_files():
 
     console.print("[bold green]✅ Environment files created.[/]")
     console.print(
-        "[bold]Remember to update each file with environment-specific values.[/]"
+        "[bold]Remember to update each file with environment-specific values.[/]",
     )
 
 
