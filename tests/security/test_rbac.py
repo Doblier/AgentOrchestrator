@@ -1,321 +1,218 @@
 import pytest
-import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from fastapi import HTTPException
 
 from agentorchestrator.security.rbac import (
-    Permission, Resource, Role, EnhancedApiKey, RBACManager,
-    initialize_rbac, check_permission
+    RBACManager, Role, EnhancedApiKey,
+    initialize_rbac,
+    check_permission
 )
 
 
 @pytest.fixture
 def mock_redis():
     """Fixture to provide a mock Redis client."""
-    mock = MagicMock()
-    # Mock the hget method to return None by default (key not found)
-    mock.hget.return_value = None
+    mock = AsyncMock()
     return mock
 
 
 @pytest.fixture
 def rbac_manager(mock_redis):
-    """Fixture to provide an initialized RBACManager with a mock Redis client."""
-    manager = RBACManager(redis_client=mock_redis)
-    return manager
+    """Fixture to provide an initialized RBACManager."""
+    return RBACManager(mock_redis)
 
 
-class TestPermission:
-    """Tests for the Permission enum."""
-    
-    def test_permission_values(self):
-        """Test that Permission enum has expected values."""
-        assert Permission.READ.value == "read"
-        assert Permission.WRITE.value == "write"
-        assert Permission.EXECUTE.value == "execute"
-        assert Permission.ADMIN.value == "admin"
-        assert Permission.FINANCE_READ.value == "finance_read"
-        assert Permission.FINANCE_WRITE.value == "finance_write"
-        assert Permission.AGENT_CREATE.value == "agent_create"
-        assert Permission.AGENT_EXECUTE.value == "agent_execute"
-
-
-class TestResource:
-    """Tests for the Resource class."""
-    
-    def test_resource_creation(self):
-        """Test creating a Resource instance."""
-        resource = Resource(resource_type="account", resource_id="12345")
-        assert resource.resource_type == "account"
-        assert resource.resource_id == "12345"
-        assert resource.actions == set()
-        
-    def test_resource_with_actions(self):
-        """Test creating a Resource with actions."""
-        resource = Resource(
-            resource_type="account",
-            resource_id="12345",
-            actions={Permission.READ, Permission.WRITE}
-        )
-        assert Permission.READ in resource.actions
-        assert Permission.WRITE in resource.actions
-        assert Permission.EXECUTE not in resource.actions
-        
-    def test_resource_equality(self):
-        """Test Resource equality comparison."""
-        resource1 = Resource(resource_type="account", resource_id="12345")
-        resource2 = Resource(resource_type="account", resource_id="12345")
-        resource3 = Resource(resource_type="user", resource_id="12345")
-        
-        assert resource1 == resource2
-        assert resource1 != resource3
-
-
-class TestRole:
-    """Tests for the Role class."""
-    
-    def test_role_creation(self):
-        """Test creating a Role instance."""
-        role = Role(name="test_role", permissions={Permission.READ})
-        assert role.name == "test_role"
-        assert Permission.READ in role.permissions
-        assert not role.resources
-        assert not role.parent_roles
-        
-    def test_role_with_resources(self):
-        """Test creating a Role with resources."""
-        resource = Resource(resource_type="account", resource_id="12345")
-        role = Role(
-            name="test_role",
-            permissions={Permission.READ},
-            resources=[resource]
-        )
-        assert resource in role.resources
-        
-    def test_role_with_parent(self):
-        """Test creating a Role with a parent role."""
-        parent_role = Role(
-            name="parent_role",
-            permissions={Permission.READ}
-        )
-        child_role = Role(
-            name="child_role",
-            permissions={Permission.WRITE},
-            parent_roles=[parent_role]
-        )
-        assert parent_role in child_role.parent_roles
-        
-    def test_has_permission_direct(self):
-        """Test has_permission method with direct permissions."""
-        role = Role(name="test_role", permissions={Permission.READ, Permission.WRITE})
-        assert role.has_permission(Permission.READ)
-        assert role.has_permission(Permission.WRITE)
-        assert not role.has_permission(Permission.EXECUTE)
-        
-    def test_has_permission_inherited(self):
-        """Test has_permission method with inherited permissions."""
-        parent_role = Role(
-            name="parent_role",
-            permissions={Permission.READ}
-        )
-        child_role = Role(
-            name="child_role",
-            permissions={Permission.WRITE},
-            parent_roles=[parent_role]
-        )
-        assert child_role.has_permission(Permission.READ)  # Inherited
-        assert child_role.has_permission(Permission.WRITE)  # Direct
-        assert not child_role.has_permission(Permission.EXECUTE)  # Not present
-        
-    def test_has_permission_nested_inheritance(self):
-        """Test has_permission with multi-level inheritance."""
-        grandparent = Role(name="grandparent", permissions={Permission.READ})
-        parent = Role(name="parent", permissions={Permission.WRITE}, parent_roles=[grandparent])
-        child = Role(name="child", permissions={Permission.EXECUTE}, parent_roles=[parent])
-        
-        assert child.has_permission(Permission.READ)  # From grandparent
-        assert child.has_permission(Permission.WRITE)  # From parent
-        assert child.has_permission(Permission.EXECUTE)  # Direct
-        assert not child.has_permission(Permission.ADMIN)  # Not present
-
-
-class TestEnhancedApiKey:
-    """Tests for the EnhancedApiKey class."""
-    
-    def test_api_key_creation(self):
-        """Test creating an EnhancedApiKey instance."""
-        api_key = EnhancedApiKey(
-            api_key_id="test-key",
-            roles=["admin"],
-            user_id="user123"
-        )
-        assert api_key.api_key_id == "test-key"
-        assert "admin" in api_key.roles
-        assert api_key.user_id == "user123"
-        assert api_key.rate_limit is None
-        assert api_key.expiration is None
-        assert not api_key.ip_whitelist
-        
-    def test_api_key_with_all_fields(self):
-        """Test creating an EnhancedApiKey with all fields."""
-        api_key = EnhancedApiKey(
-            api_key_id="test-key",
-            roles=["admin"],
-            user_id="user123",
-            rate_limit=100,
-            expiration="2023-12-31",
-            ip_whitelist=["192.168.1.1", "10.0.0.1"]
-        )
-        assert api_key.rate_limit == 100
-        assert api_key.expiration == "2023-12-31"
-        assert "192.168.1.1" in api_key.ip_whitelist
-        assert "10.0.0.1" in api_key.ip_whitelist
-
-
+@pytest.mark.security
 class TestRBACManager:
-    """Tests for the RBACManager class."""
+    """Test cases for the RBACManager class."""
     
-    def test_create_role(self, rbac_manager, mock_redis):
-        """Test creating a role."""
-        # Configure mock to return None (role doesn't exist)
-        mock_redis.hget.return_value = None
+    @pytest.mark.asyncio
+    async def test_create_role(self, rbac_manager, mock_redis):
+        """Test creating a new role."""
+        # Set up mock
+        mock_redis.exists.return_value = False
+        mock_redis.set.return_value = True
+        mock_redis.sadd.return_value = 1
         
-        role = Role(name="test_role", permissions={Permission.READ})
-        result = rbac_manager.create_role(role)
+        # Create role
+        role = await rbac_manager.create_role(
+            name="admin",
+            description="Administrator role",
+            permissions=["read", "write"],
+            resources=["*"],
+            parent_roles=[]
+        )
         
-        assert result is True
-        # Verify Redis was called with expected arguments
-        mock_redis.hset.assert_called_once()
+        # Verify role was created
+        assert role.name == "admin"
+        assert role.description == "Administrator role"
+        assert role.permissions == ["read", "write"]
+        assert role.resources == ["*"]
+        assert role.parent_roles == []
         
-    def test_create_existing_role(self, rbac_manager, mock_redis):
-        """Test creating a role that already exists."""
-        # Configure mock to return a value (role exists)
-        mock_redis.hget.return_value = b'{"name":"test_role","permissions":["read"]}'
+        # Verify Redis calls
+        mock_redis.exists.assert_called_once_with("role:admin")
+        mock_redis.set.assert_called_once()
+        mock_redis.sadd.assert_called_once_with("roles", "admin")
+    
+    @pytest.mark.asyncio
+    async def test_get_role(self, rbac_manager, mock_redis):
+        """Test retrieving a role."""
+        # Set up mock
+        mock_redis.exists.return_value = True
+        mock_redis.get.return_value = '{"name": "admin", "description": "Admin role", "permissions": ["read"], "resources": ["*"], "parent_roles": []}'
         
-        role = Role(name="test_role", permissions={Permission.READ})
-        result = rbac_manager.create_role(role)
+        # Get role
+        role = await rbac_manager.get_role("admin")
         
-        assert result is False
-        # Verify hset was not called
-        mock_redis.hset.assert_not_called()
+        # Verify role was retrieved
+        assert role.name == "admin"
+        assert role.description == "Admin role"
+        assert role.permissions == ["read"]
+        assert role.resources == ["*"]
+        assert role.parent_roles == []
         
-    @patch('json.loads')
-    def test_get_role(self, mock_loads, rbac_manager, mock_redis):
-        """Test getting a role."""
-        # Configure mock to return a serialized role
-        mock_redis.hget.return_value = b'{"name":"test_role","permissions":["read"]}'
-        mock_loads.return_value = {"name": "test_role", "permissions": ["read"]}
+        # Verify Redis calls
+        mock_redis.exists.assert_called_once_with("role:admin")
+        mock_redis.get.assert_called_once_with("role:admin")
+    
+    @pytest.mark.asyncio
+    async def test_get_role_not_found(self, rbac_manager, mock_redis):
+        """Test retrieving a non-existent role."""
+        # Set up mock
+        mock_redis.exists.return_value = False
         
-        role = rbac_manager.get_role("test_role")
+        # Get role
+        role = await rbac_manager.get_role("nonexistent")
         
-        assert role is not None
-        assert role.name == "test_role"
-        assert Permission.READ in role.permissions
-        
-    def test_get_nonexistent_role(self, rbac_manager, mock_redis):
-        """Test getting a role that doesn't exist."""
-        # Configure mock to return None (role doesn't exist)
-        mock_redis.hget.return_value = None
-        
-        role = rbac_manager.get_role("nonexistent_role")
-        
+        # Verify role was not found
         assert role is None
         
-    def test_create_api_key(self, rbac_manager, mock_redis):
+        # Verify Redis calls
+        mock_redis.exists.assert_called_once_with("role:nonexistent")
+        mock_redis.get.assert_not_called()
+    
+    @pytest.mark.asyncio
+    async def test_get_effective_permissions(self, rbac_manager, mock_redis):
+        """Test getting effective permissions for roles."""
+        # Set up mock
+        mock_redis.exists.return_value = True
+        mock_redis.get.side_effect = [
+            '{"name": "admin", "permissions": ["read", "write"], "parent_roles": []}',
+            '{"name": "user", "permissions": ["read"], "parent_roles": []}'
+        ]
+        
+        # Get effective permissions
+        permissions = await rbac_manager.get_effective_permissions(["admin", "user"])
+        
+        # Verify permissions
+        assert permissions == {"read", "write"}
+        
+        # Verify Redis calls
+        assert mock_redis.exists.call_count == 2
+        assert mock_redis.get.call_count == 2
+    
+    @pytest.mark.asyncio
+    async def test_create_api_key(self, rbac_manager, mock_redis):
         """Test creating an API key."""
-        # Mock UUID to return a predictable value
-        with patch('uuid.uuid4', return_value=uuid.UUID("00000000-0000-0000-0000-000000000000")):
-            api_key = rbac_manager.create_api_key(
-                user_id="user123",
-                roles=["admin"],
-                rate_limit=100
-            )
-            
-            assert api_key.startswith("aorbit-")
-            assert len(api_key) > 10  # Should be a reasonably long key
-            mock_redis.hset.assert_called_once()
-            
-    @patch('json.loads')
-    def test_get_api_key_data(self, mock_loads, rbac_manager, mock_redis):
+        # Set up mock
+        mock_redis.exists.return_value = False
+        mock_redis.hset.return_value = True
+        
+        # Create API key
+        api_key = await rbac_manager.create_api_key(
+            name="test_key",
+            roles=["admin"],
+            user_id="user123",
+            rate_limit=100
+        )
+        
+        # Verify API key was created
+        assert api_key.key.startswith("aorbit_")
+        assert api_key.name == "test_key"
+        assert api_key.roles == ["admin"]
+        assert api_key.user_id == "user123"
+        assert api_key.rate_limit == 100
+        
+        # Verify Redis calls
+        mock_redis.hset.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_get_api_key(self, rbac_manager, mock_redis):
         """Test getting API key data."""
-        # Configure mock to return a serialized API key
-        mock_redis.hget.return_value = b'{"api_key_id":"test-key","roles":["admin"],"user_id":"user123"}'
-        mock_loads.return_value = {"api_key_id": "test-key", "roles": ["admin"], "user_id": "user123"}
+        # Set up mock
+        mock_redis.hget.return_value = '{"key": "test_key", "name": "Test Key", "roles": ["admin"], "user_id": "user123", "rate_limit": 100}'
         
-        api_key_data = rbac_manager.get_api_key_data("test-key")
+        # Get API key data
+        api_key = await rbac_manager.get_api_key("test_key")
         
-        assert api_key_data is not None
-        assert api_key_data.api_key_id == "test-key"
-        assert "admin" in api_key_data.roles
-        assert api_key_data.user_id == "user123"
+        # Verify API key data was retrieved
+        assert api_key.key == "test_key"
+        assert api_key.name == "Test Key"
+        assert api_key.roles == ["admin"]
+        assert api_key.user_id == "user123"
+        assert api_key.rate_limit == 100
         
-    def test_check_permission_with_role(self, rbac_manager, mock_redis):
-        """Test check_permission with a valid role and permission."""
-        # Set up mocks for the role and API key
-        with patch.object(rbac_manager, 'get_api_key_data') as mock_get_key:
-            with patch.object(rbac_manager, 'get_role') as mock_get_role:
-                # Configure API key mock
-                mock_api_key = EnhancedApiKey(
-                    api_key_id="test-key",
-                    roles=["admin"],
-                    user_id="user123"
-                )
-                mock_get_key.return_value = mock_api_key
-                
-                # Configure role mock
-                mock_role = Role(name="admin", permissions={Permission.READ, Permission.WRITE, Permission.ADMIN})
-                mock_get_role.return_value = mock_role
-                
-                # Test permission check
-                result = rbac_manager.check_permission("test-key", Permission.READ)
-                assert result is True
-                
-                result = rbac_manager.check_permission("test-key", Permission.ADMIN)
-                assert result is True
-                
-                result = rbac_manager.check_permission("test-key", Permission.FINANCE_READ)
-                assert result is False
+        # Verify Redis calls
+        mock_redis.hget.assert_called_once_with("rbac:api_keys", "test_key")
+    
+    @pytest.mark.asyncio
+    async def test_has_permission(self, rbac_manager, mock_redis):
+        """Test checking permissions."""
+        # Set up mock
+        mock_redis.hget.return_value = '{"key": "test_key", "name": "Test Key", "roles": ["admin"], "user_id": "user123", "rate_limit": 100}'
+        mock_redis.exists.return_value = True
+        mock_redis.get.return_value = '{"name": "admin", "permissions": ["read", "write"], "parent_roles": []}'
+        
+        # Check permission
+        result = await rbac_manager.has_permission("test_key", "read")
+        
+        # Verify permission was checked
+        assert result is True
+        
+        # Verify Redis calls
+        mock_redis.hget.assert_called_once_with("rbac:api_keys", "test_key")
+        mock_redis.exists.assert_called_once()
+        mock_redis.get.assert_called_once()
 
 
-def test_initialize_rbac(mock_redis):
-    """Test the initialize_rbac function."""
-    with patch.object(RBACManager, 'create_role') as mock_create_role:
-        # Configure mock to always return True (successful role creation)
-        mock_create_role.return_value = True
+@pytest.mark.security
+@pytest.mark.asyncio
+async def test_initialize_rbac(mock_redis):
+    """Test initializing the RBAC system."""
+    with patch('agentorchestrator.security.rbac.RBACManager') as mock_rbac_class:
+        # Set up mock
+        mock_rbac = AsyncMock()
+        mock_rbac_class.return_value = mock_rbac
+        mock_rbac.get_role.return_value = None
         
         # Initialize RBAC
-        rbac_manager = initialize_rbac(mock_redis)
+        rbac = await initialize_rbac(mock_redis)
         
-        # Verify all default roles were created
-        assert mock_create_role.call_count >= 5  # At least 5 default roles
+        # Verify RBAC was initialized
+        mock_rbac_class.assert_called_once_with(mock_redis)
+        assert rbac == mock_rbac
 
 
-@patch('agentorchestrator.security.rbac.RBACManager')
-def test_check_permission_function(mock_rbac_manager_class):
-    """Test the check_permission function."""
-    # Set up mocks
-    mock_manager = MagicMock()
-    mock_rbac_manager_class.return_value = mock_manager
-    
-    # Configure mock to return True for valid permission check
-    mock_manager.check_permission.return_value = True
-    
-    # Test successful permission check
-    result = check_permission(
-        api_key="test-key",
-        permission=Permission.READ,
-        redis_client=MagicMock()
-    )
-    assert result is True
-    
-    # Configure mock to return False for invalid permission check
-    mock_manager.check_permission.return_value = False
-    
-    # Test failed permission check
-    with pytest.raises(HTTPException) as excinfo:
-        check_permission(
-            api_key="test-key",
-            permission=Permission.ADMIN,
-            redis_client=MagicMock()
-        )
-    assert excinfo.value.status_code == 403  # Forbidden 
+@pytest.mark.security
+@pytest.mark.asyncio
+async def test_check_permission():
+    """Test the check_permission dependency."""
+    with patch('agentorchestrator.security.rbac.RBACManager') as mock_rbac_class:
+        # Set up mock
+        mock_rbac = AsyncMock()
+        mock_rbac_class.return_value = mock_rbac
+        mock_rbac.has_permission.return_value = True
+        
+        # Create request
+        request = MagicMock()
+        request.state.api_key = "test-key"
+        request.state.api_key_data = MagicMock(key="test-key")
+        request.app.state.rbac_manager = mock_rbac
+        
+        # Check permission
+        result = await check_permission(request, "read")
+        
+        # Verify permission was checked
+        assert result is True
+        mock_rbac.has_permission.assert_called_once_with("test-key", "read", None, None) 

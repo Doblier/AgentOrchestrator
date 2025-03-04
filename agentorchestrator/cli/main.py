@@ -96,6 +96,9 @@ def test(
     path: str = typer.Option(
         "", help="Specific test path to run (e.g., tests/test_main.py)"
     ),
+    security: bool = typer.Option(False, help="Run security tests only"),
+    redis_host: str = typer.Option("localhost", help="Redis host for tests"),
+    redis_port: int = typer.Option(6379, help="Redis port for tests"),
 ):
     """Run tests with pytest."""
     try:
@@ -121,6 +124,27 @@ def test(
             ["--cov=agentorchestrator", "--cov-report=term", "--cov-report=html"]
         )
 
+    # Add security test configuration
+    if security:
+        cmd.extend([
+            "-v",
+            "-m", "security",
+            "--asyncio-mode=strict"
+        ])
+        # Set security environment variables
+        os.environ.update({
+            "SECURITY_ENABLED": "true",
+            "RBAC_ENABLED": "true",
+            "AUDIT_LOGGING_ENABLED": "true",
+            "ENCRYPTION_ENABLED": "true",
+            "ENCRYPTION_KEY": "test-key-for-encryption",
+            "REDIS_HOST": redis_host,
+            "REDIS_PORT": str(redis_port)
+        })
+        console.print(f"[bold blue]Running security tests with Redis at {redis_host}:{redis_port}[/]")
+    else:
+        cmd.extend(["-v", "-m", "not security"])
+
     # Add specific path if provided
     if path:
         cmd.append(path)
@@ -134,8 +158,12 @@ def test(
 
     if result.returncode == 0:
         console.print("[bold green]✅ All tests passed![/]")
+        if coverage:
+            console.print("\n[bold]Coverage report available at:[/]")
+            console.print("  htmlcov/index.html")
     else:
         console.print("[bold red]❌ Tests failed[/]")
+        sys.exit(result.returncode)
 
 
 @app.command()

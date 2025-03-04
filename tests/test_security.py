@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock
 
 from agentorchestrator.security.rbac import RBACManager
 from agentorchestrator.security.audit import AuditLogger
-from agentorchestrator.security.encryption import EncryptionManager
+from agentorchestrator.security.encryption import Encryptor
 from agentorchestrator.security.integration import SecurityIntegration, initialize_security
 from agentorchestrator.api.middleware import APISecurityMiddleware
 

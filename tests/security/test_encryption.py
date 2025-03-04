@@ -4,7 +4,7 @@ import base64
 from unittest.mock import MagicMock, patch
 
 from agentorchestrator.security.encryption import (
-    EncryptionManager, EncryptedField, DataProtectionService,
+    Encryptor, EncryptedField, DataProtectionService,
     initialize_encryption
 )
 
@@ -18,7 +18,7 @@ def encryption_key():
 @pytest.fixture
 def encryption_manager(encryption_key):
     """Fixture to provide an initialized EncryptionManager with a test key."""
-    return EncryptionManager(encryption_key)
+    return Encryptor(encryption_key)
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ class TestEncryptionManager:
     
     def test_generate_key(self):
         """Test generating a new encryption key."""
-        key = EncryptionManager.generate_key()
+        key = Encryptor.generate_key()
         # Key should be a base64-encoded string
         assert isinstance(key, str)
         # Key should be 44 characters (32 bytes in base64)
@@ -43,14 +43,14 @@ class TestEncryptionManager:
         password = "strong-password-123"
         salt = os.urandom(16)
         
-        key1 = EncryptionManager.derive_key_from_password(password, salt)
-        key2 = EncryptionManager.derive_key_from_password(password, salt)
+        key1 = Encryptor.derive_key_from_password(password, salt)
+        key2 = Encryptor.derive_key_from_password(password, salt)
         
         # Same password and salt should produce the same key
         assert key1 == key2
         
         # Different salt should produce a different key
-        key3 = EncryptionManager.derive_key_from_password(password, os.urandom(16))
+        key3 = Encryptor.derive_key_from_password(password, os.urandom(16))
         assert key1 != key3
         
     def test_encrypt_decrypt_string(self, encryption_manager):
@@ -74,8 +74,8 @@ class TestEncryptionManager:
         original = "This is a secret message!"
         
         # Create two managers with different keys
-        manager1 = EncryptionManager(encryption_key)
-        manager2 = EncryptionManager(EncryptionManager.generate_key())
+        manager1 = Encryptor(encryption_key)
+        manager2 = Encryptor(Encryptor.generate_key())
         
         # Encrypt with first manager
         encrypted = manager1.encrypt_string(original)
@@ -230,7 +230,7 @@ class TestDataProtectionService:
 @patch.dict(os.environ, {})
 def test_initialize_encryption_new_key():
     """Test initializing encryption without an existing key."""
-    with patch('agentorchestrator.security.encryption.EncryptionManager') as mock_manager_class:
+    with patch('agentorchestrator.security.encryption.Encryptor') as mock_manager_class:
         # Set up mocks
         mock_manager_class.generate_key.return_value = "test-key"
         mock_manager = MagicMock()
@@ -248,7 +248,7 @@ def test_initialize_encryption_new_key():
 @patch.dict(os.environ, {"ENCRYPTION_KEY": "existing-key"})
 def test_initialize_encryption_existing_key():
     """Test initializing encryption with an existing key."""
-    with patch('agentorchestrator.security.encryption.EncryptionManager') as mock_manager_class:
+    with patch('agentorchestrator.security.encryption.Encryptor') as mock_manager_class:
         # Set up mocks
         mock_manager = MagicMock()
         mock_manager_class.return_value = mock_manager

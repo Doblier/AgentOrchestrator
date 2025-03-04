@@ -7,6 +7,7 @@ with fine-grained permissions, hierarchical roles, and resource-specific access 
 
 import json
 import logging
+import uuid
 from typing import Dict, List, Optional, Set, Union, Any
 from fastapi import Depends, HTTPException, Request, Security, status
 from redis import Redis
@@ -97,8 +98,10 @@ class RBACManager:
         """
         self.redis = redis_client
         self._role_cache: Dict[str, Role] = {}
+        self._roles_key = "rbac:roles"
+        self._api_keys_key = "rbac:api_keys"
     
-    def create_role(
+    async def create_role(
         self, 
         name: str, 
         description: str = "", 
@@ -119,7 +122,7 @@ class RBACManager:
             Created role
         """
         # Check if role already exists
-        existing_role = self.get_role(name)
+        existing_role = await self.get_role(name)
         if existing_role:
             return existing_role
             
@@ -143,10 +146,10 @@ class RBACManager:
         }
         
         try:
-            self.redis.set(role_key, json.dumps(role_data))
+            await self.redis.set(role_key, json.dumps(role_data))
             
             # Update roles set
-            self.redis.sadd("roles", name)
+            await self.redis.sadd("roles", name)
             
             # Cache role
             self._role_cache[name] = role
@@ -156,7 +159,7 @@ class RBACManager:
             logger.error(f"Error creating role {name}: {e}")
             raise
     
-    def get_role(self, role_name: str) -> Optional[Role]:
+    async def get_role(self, role_name: str) -> Optional[Role]:
         """Get a role by name.
         
         Args:
@@ -172,13 +175,13 @@ class RBACManager:
         try:
             # Get from Redis
             role_key = f"role:{role_name}"
-            exists = self.redis.exists(role_key)
+            exists = await self.redis.exists(role_key)
             
             if not exists:
                 return None
                 
             # Get role data
-            role_json = self.redis.get(role_key)
+            role_json = await self.redis.get(role_key)
             if not role_json:
                 return None
             
@@ -232,7 +235,7 @@ class RBACManager:
             del self._role_cache[role_name]
         return result > 0
 
-    def get_effective_permissions(self, role_names: List[str]) -> Set[str]:
+    async def get_effective_permissions(self, role_names: List[str]) -> Set[str]:
         """Get all effective permissions for a list of roles, including inherited permissions.
         
         Args:
@@ -244,12 +247,12 @@ class RBACManager:
         effective_permissions: Set[str] = set()
         processed_roles: Set[str] = set()
         
-        def process_role(role_name: str):
+        async def process_role(role_name: str):
             if role_name in processed_roles:
                 return
             
             processed_roles.add(role_name)
-            role = self.get_role(role_name)
+            role = await self.get_role(role_name)
             
             if not role:
                 return
@@ -260,32 +263,67 @@ class RBACManager:
             
             # Process parent roles recursively
             for parent in role.parent_roles:
-                process_role(parent)
+                await process_role(parent)
         
         # Process each role in the list
         for role_name in role_names:
-            process_role(role_name)
+            await process_role(role_name)
             
         return effective_permissions
 
-    def create_api_key(self, api_key: EnhancedApiKey) -> bool:
-        """Create or update an API key.
+    async def create_api_key(
+        self,
+        name: str,
+        roles: List[str],
+        user_id: Optional[str] = None,
+        rate_limit: int = 60,
+        expiration: Optional[int] = None,
+        ip_whitelist: List[str] = None,
+        organization_id: Optional[str] = None,
+        metadata: Dict[str, Any] = None
+    ) -> Optional[EnhancedApiKey]:
+        """Create a new API key.
         
         Args:
-            api_key: API key definition
+            name: API key name
+            roles: List of roles for the key
+            user_id: Associated user ID
+            rate_limit: Rate limit for API requests
+            expiration: Expiration timestamp
+            ip_whitelist: List of allowed IP addresses
+            organization_id: Associated organization ID
+            metadata: Additional metadata
             
         Returns:
-            True if successful
+            Created API key if successful, None otherwise
         """
         try:
+            # Generate a unique key
+            key = f"aorbit_{uuid.uuid4().hex[:32]}"
+            
+            # Create API key object
+            api_key = EnhancedApiKey(
+                key=key,
+                name=name,
+                roles=roles,
+                user_id=user_id,
+                rate_limit=rate_limit,
+                expiration=expiration,
+                ip_whitelist=ip_whitelist,
+                organization_id=organization_id,
+                metadata=metadata
+            )
+            
+            # Save to Redis
             api_key_json = json.dumps(api_key.__dict__)
-            self.redis.hset(self._api_keys_key, api_key.key, api_key_json)
-            return True
+            await self.redis.hset(self._api_keys_key, key, api_key_json)
+            
+            return api_key
         except Exception as e:
             logger.error(f"Error creating API key: {e}")
-            return False
+            return None
 
-    def get_api_key(self, key: str) -> Optional[EnhancedApiKey]:
+    async def get_api_key(self, key: str) -> Optional[EnhancedApiKey]:
         """Get an API key by its value.
         
         Args:
@@ -295,7 +333,7 @@ class RBACManager:
             EnhancedApiKey if found, None otherwise
         """
         try:
-            api_key_json = self.redis.hget(self._api_keys_key, key)
+            api_key_json = await self.redis.hget(self._api_keys_key, key)
             if not api_key_json:
                 return None
                 
@@ -381,7 +419,7 @@ DEFAULT_ROLES = [
 ]
 
 
-def initialize_rbac(redis_client) -> RBACManager:
+async def initialize_rbac(redis_client) -> RBACManager:
     """Initialize RBAC with default roles.
     
     Args:
@@ -396,9 +434,9 @@ def initialize_rbac(redis_client) -> RBACManager:
     # Create default roles if they don't exist
     for role_def in DEFAULT_ROLES:
         role_name = role_def["name"]
-        if not rbac_manager.get_role(role_name):
+        if not await rbac_manager.get_role(role_name):
             logger.info(f"Creating default role: {role_name}")
-            rbac_manager.create_role(
+            await rbac_manager.create_role(
                 name=role_name,
                 description=role_def["description"],
                 permissions=role_def["permissions"],

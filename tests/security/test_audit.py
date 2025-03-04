@@ -1,12 +1,14 @@
 import pytest
 import json
-import datetime
 from unittest.mock import MagicMock, patch
+from datetime import datetime
 
 from agentorchestrator.security.audit import (
-    AuditEventType, AuditEvent, AuditLogger,
-    log_authentication_success, log_authentication_failure,
-    log_api_request, initialize_audit_logger
+    AuditLogger, AuditEventType,
+    initialize_audit_logger,
+    log_auth_success,
+    log_auth_failure,
+    log_api_request
 )
 
 
@@ -44,7 +46,7 @@ class TestAuditEvent:
         """Test creating an AuditEvent instance."""
         event = AuditEvent(
             event_id="test-event",
-            timestamp=datetime.datetime.now().isoformat(),
+            timestamp=datetime.now().isoformat(),
             event_type=AuditEventType.AUTHENTICATION,
             user_id="user123",
             api_key_id="api-key-123",
@@ -72,7 +74,7 @@ class TestAuditEvent:
         
     def test_audit_event_to_dict(self):
         """Test converting an AuditEvent to a dictionary."""
-        timestamp = datetime.datetime.now().isoformat()
+        timestamp = datetime.now().isoformat()
         event = AuditEvent(
             event_id="test-event",
             timestamp=timestamp,
@@ -100,7 +102,7 @@ class TestAuditLogger:
         """Test logging an event."""
         event = AuditEvent(
             event_id="test-event",
-            timestamp=datetime.datetime.now().isoformat(),
+            timestamp=datetime.now().isoformat(),
             event_type=AuditEventType.AUTHENTICATION,
             user_id="user123",
             action="login",
@@ -119,7 +121,7 @@ class TestAuditLogger:
         # Configure mock to return a serialized event
         mock_redis.hget.return_value = json.dumps({
             "event_id": "test-event",
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "event_type": AuditEventType.AUTHENTICATION.value,
             "user_id": "user123",
             "action": "login",
@@ -156,7 +158,7 @@ class TestAuditLogger:
             if field == b"event1":
                 return json.dumps({
                     "event_id": "event1",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user123",
                     "action": "login",
@@ -166,7 +168,7 @@ class TestAuditLogger:
             elif field == b"event2":
                 return json.dumps({
                     "event_id": "event2",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user456",
                     "action": "login",
@@ -180,8 +182,8 @@ class TestAuditLogger:
         # Query events
         events = audit_logger.query_events(
             event_type=AuditEventType.AUTHENTICATION,
-            start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-            end_time=datetime.datetime.now(),
+            start_time=datetime.now() - datetime.timedelta(days=1),
+            end_time=datetime.now(),
             limit=10
         )
         
@@ -199,7 +201,7 @@ class TestAuditLogger:
             if field == b"event1":
                 return json.dumps({
                     "event_id": "event1",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user123",
                     "action": "login",
@@ -209,7 +211,7 @@ class TestAuditLogger:
             elif field == b"event2":
                 return json.dumps({
                     "event_id": "event2",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user456",
                     "action": "login",
@@ -223,8 +225,8 @@ class TestAuditLogger:
         # Query events with user filter
         events = audit_logger.query_events(
             user_id="user123",
-            start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-            end_time=datetime.datetime.now(),
+            start_time=datetime.now() - datetime.timedelta(days=1),
+            end_time=datetime.now(),
             limit=10
         )
         
@@ -243,7 +245,7 @@ class TestAuditLogger:
             if field == b"event1":
                 return json.dumps({
                     "event_id": "event1",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user123",
                     "action": "login",
@@ -253,7 +255,7 @@ class TestAuditLogger:
             elif field == b"event2":
                 return json.dumps({
                     "event_id": "event2",
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "event_type": AuditEventType.AUTHENTICATION.value,
                     "user_id": "user456",
                     "action": "login",
@@ -266,8 +268,8 @@ class TestAuditLogger:
         
         # Export events
         export_json = audit_logger.export_events(
-            start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-            end_time=datetime.datetime.now()
+            start_time=datetime.now() - datetime.timedelta(days=1),
+            end_time=datetime.now()
         )
         
         # Verify export format
@@ -279,15 +281,15 @@ class TestAuditLogger:
         assert export_data["events"][1]["event_id"] == "event2"
 
 
-def test_log_authentication_success():
-    """Test the log_authentication_success helper function."""
+def test_log_auth_success():
+    """Test the log_auth_success helper function."""
     with patch('agentorchestrator.security.audit.AuditLogger') as mock_logger_class:
         # Set up mock
         mock_logger = MagicMock()
         mock_logger_class.return_value = mock_logger
         
         # Call the helper function
-        log_authentication_success(
+        log_auth_success(
             user_id="user123",
             api_key_id="api-key-123",
             ip_address="192.168.1.1",
@@ -305,15 +307,15 @@ def test_log_authentication_success():
         assert event.status == "success"
 
 
-def test_log_authentication_failure():
-    """Test the log_authentication_failure helper function."""
+def test_log_auth_failure():
+    """Test the log_auth_failure helper function."""
     with patch('agentorchestrator.security.audit.AuditLogger') as mock_logger_class:
         # Set up mock
         mock_logger = MagicMock()
         mock_logger_class.return_value = mock_logger
         
         # Call the helper function
-        log_authentication_failure(
+        log_auth_failure(
             ip_address="192.168.1.1",
             reason="Invalid API key",
             api_key_id="invalid-key",
