@@ -1,13 +1,12 @@
-"""Test cases for the security integration module."""
+"""Integration tests for the security framework."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from agentorchestrator.security.integration import (
-    SecurityIntegration,
-    initialize_security,
-)
+from agentorchestrator.security import SecurityIntegration
+from agentorchestrator.security.integration import initialize_security
 
 
 @pytest.fixture
