@@ -11,6 +11,7 @@ from redis import Redis
 from starlette.responses import JSONResponse
 
 from agentorchestrator.security.audit import (
+    AuditEvent,
     AuditEventType,
     initialize_audit_logger,
     log_auth_failure,
@@ -93,9 +94,9 @@ class SecurityIntegration:
 
         # Add API key security scheme to OpenAPI docs if security is enabled
         if self.enable_security:
-            self.app.add_security_scheme(
-                "apiKey",
-                APIKeyHeader(name=self.api_key_header_name, auto_error=False),
+            self.app.add_middleware(
+                "http",
+                dependencies=[Depends(self.check_permission_dependency("*"))]
             )
 
     async def _security_middleware(self, request: Request, call_next):
@@ -161,10 +162,11 @@ class SecurityIntegration:
 
                     # Log successful authentication
                     if self.audit_logger:
-                        await log_auth_success(
-                            self.audit_logger,
+                        log_auth_success(
+                            user_id=user_id,
                             api_key_id=api_key,
                             ip_address=client_ip,
+                            redis_client=self.redis,
                         )
 
             # Store API key and role in request state for use in route handlers
@@ -172,20 +174,12 @@ class SecurityIntegration:
 
             # Log request
             if self.audit_logger:
-                await log_api_request(
-                    self.audit_logger,
-                    event_type=AuditEventType.AGENT_EXECUTION,
-                    action=f"{request.method} {request.url.path}",
-                    status="REQUESTED",
-                    message=f"API request initiated: {request.method} {request.url.path}",
+                log_api_request(
+                    request=request,
                     user_id=user_id,
                     api_key_id=api_key,
-                    ip_address=client_ip,
-                    metadata={
-                        "query_params": dict(request.query_params),
-                        "path_params": getattr(request, "path_params", {}),
-                        "method": request.method,
-                    },
+                    status_code=200,
+                    redis_client=self.redis,
                 )
 
         # Legacy API key validation
@@ -193,6 +187,13 @@ class SecurityIntegration:
             # Simple API key validation
             if not api_key.startswith(("aorbit", "ao-")):
                 logger.warning(f"Invalid API key format from {client_ip}")
+                if self.audit_logger:
+                    log_auth_failure(
+                        ip_address=client_ip,
+                        reason="Invalid API key format",
+                        redis_client=self.redis,
+                        api_key_id=api_key,
+                    )
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={"detail": "Unauthorized: Invalid API key"},
@@ -300,55 +301,51 @@ class SecurityIntegration:
         return self.check_permission_dependency(permission, resource_type, resource_id)
 
 
-def initialize_security(redis_client) -> dict[str, Any]:
-    """Initialize all security components.
+async def initialize_security(redis_client: Redis) -> SecurityIntegration:
+    """Initialize the security framework.
 
     Args:
-        redis_client: Redis client
+        redis_client: Redis client instance
 
     Returns:
-        Dictionary of security components
+        SecurityIntegration instance
     """
-    logger.info("Initializing enterprise security framework")
+    logger.info("\nInitializing enterprise security framework")
 
-    # Initialize components
+    # Initialize RBAC
+    rbac = await initialize_rbac(redis_client)
+    logger.info("\nRBAC system initialized successfully")
+
+    # Initialize audit logging
+    audit_logger = initialize_audit_logger(redis_client)
+    logger.info("\nAudit logging system initialized successfully")
+
+    # Initialize encryption
     try:
-        rbac_manager = initialize_rbac(redis_client)
-        logger.info("RBAC system initialized successfully")
+        encryption = initialize_encryption()
+        logger.info("\nEncryption service initialized successfully")
     except Exception as e:
-        logger.error(f"Error initializing RBAC system: {e}")
-        rbac_manager = None
+        logger.error(f"\nError initializing encryption service: {str(e)}")
+        encryption = None
 
-    try:
-        audit_logger = initialize_audit_logger(redis_client)
-        logger.info("Audit logging system initialized successfully")
-    except Exception as e:
-        logger.error(f"Error initializing audit logging system: {e}")
-        audit_logger = None
+    # Create security integration instance
+    security = SecurityIntegration(
+        app=FastAPI(),
+        redis=redis_client,
+        enable_security=True,
+        enable_rbac=True,
+        enable_audit=True,
+        enable_encryption=True,
+    )
 
-    try:
-        encryption_key = os.environ.get("AORBIT_ENCRYPTION_KEY")
-        encryptor = initialize_encryption(encryption_key)
-        logger.info("Encryption service initialized successfully")
-    except Exception as e:
-        logger.error(f"Error initializing encryption service: {e}")
-        encryptor = None
-
-    # Create security integration container
-    security = {
-        "rbac_manager": rbac_manager,
-        "audit_logger": audit_logger,
-        "encryptor": encryptor,
-    }
-
-    # Log startup
+    # Log initialization event
     if audit_logger:
-        audit_logger.log_event(
-            event_type=AuditEventType.SYSTEM_STARTUP,
-            action="initialize",
+        event = AuditEvent(
+            event_type=AuditEventType.ADMIN,
+            action="initialization",
             status="success",
-            details={"components": [k for k, v in security.items() if v is not None]},
+            message="Security framework initialized",
         )
+        audit_logger.log_event(event)
 
-    logger.info("Enterprise security framework initialized successfully")
     return security

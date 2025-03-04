@@ -97,7 +97,7 @@ class BatchProcessor:
         """
         try:
             job.status = "processing"
-            self._save_job(job)
+            await self._save_job(job)
 
             # Process each input
             results = []
@@ -117,16 +117,15 @@ class BatchProcessor:
             job.error = str(e)
             job.completed_at = datetime.utcnow()
 
-        self._save_job(job)
+        await self._save_job(job)
         return job
 
-    def _save_job(self, job: BatchJob) -> None:
-        """Save job data to Redis.
-
-        Args:
-            job: Job to save
-        """
-        self.redis.set(self._get_job_key(job.id), job.json())
+    async def _save_job(self, job: BatchJob) -> None:
+        """Save job to Redis."""
+        await self.redis.set(
+            self._get_job_key(job.id),
+            job.model_dump_json()
+        )
 
     def _processor_loop(self, get_workflow_func):
         """Background processor loop.
@@ -140,13 +139,13 @@ class BatchProcessor:
         async def process_loop():
             while self._processing:
                 # Get next job from queue
-                job_id = self.redis.rpop("batch:queue")
+                job_id = await self.redis.rpop("batch:queue")
                 if not job_id:
                     await asyncio.sleep(1)
                     continue
 
                 # Get job data
-                job_data = self.redis.get(self._get_job_key(job_id))
+                job_data = await self.redis.get(self._get_job_key(job_id))
                 if not job_data:
                     continue
 
@@ -157,7 +156,7 @@ class BatchProcessor:
                 if not workflow_func:
                     job.status = "failed"
                     job.error = f"Agent {job.agent} not found"
-                    self._save_job(job)
+                    await self._save_job(job)
                     continue
 
                 # Process job

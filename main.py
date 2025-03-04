@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Security, status
 from fastapi.security import APIKeyHeader
 from pydantic_settings import BaseSettings
-from redis import Redis
+from redis.asyncio import Redis
 from redis.exceptions import ConnectionError
 
 from agentorchestrator.api.base import router as base_router
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def initialize_api_keys(redis_client: Redis) -> None:
+async def initialize_api_keys(redis_client: Redis) -> None:
     """Initialize default API key in Redis.
 
     Args:
@@ -76,9 +76,9 @@ def initialize_api_keys(redis_client: Redis) -> None:
 
     try:
         # Store in Redis
-        redis_client.hset("api_keys", default_key, json.dumps(api_key))
+        await redis_client.hset("api_keys", default_key, json.dumps(api_key))
         # Verify storage
-        stored_key = redis_client.hget("api_keys", default_key)
+        stored_key = await redis_client.hget("api_keys", default_key)
         if stored_key:
             logger.info("Successfully initialized default API key")
         else:
@@ -88,7 +88,7 @@ def initialize_api_keys(redis_client: Redis) -> None:
         raise
 
 
-def create_redis_client(max_retries=5, retry_delay=2):
+async def create_redis_client(max_retries=5, retry_delay=2):
     """Create Redis client with retries.
 
     Args:
@@ -110,7 +110,7 @@ def create_redis_client(max_retries=5, retry_delay=2):
                 decode_responses=True,
             )
             # Test connection
-            client.ping()
+            await client.ping()
             logger.info("Successfully connected to Redis")
             return client
         except ConnectionError:
@@ -125,85 +125,76 @@ def create_redis_client(max_retries=5, retry_delay=2):
                 attempt + 1,
                 retry_delay,
             )
-            time.sleep(retry_delay)
+            await asyncio.sleep(retry_delay)
 
 
 # Create Redis client
-try:
-    redis_client = create_redis_client()
-    if not redis_client:
-        logger.error("Failed to create Redis client")
-        raise ConnectionError("Redis client creation failed")
-
-    # Test connection
-    if not redis_client.ping():
-        logger.error("Redis ping failed")
-        raise ConnectionError("Redis ping failed")
-
-    # Initialize API keys
-    initialize_api_keys(redis_client)
-    # Create batch processor
-    batch_processor = BatchProcessor(redis_client)
-    logger.info("Redis features initialized successfully")
-except ConnectionError as e:
-    logger.error(f"Redis connection error: {str(e)}")
-    logger.warning(
-        "Starting without Redis features (auth, cache, rate limiting, batch processing)",
-    )
-    redis_client = None
-    batch_processor = None
-except Exception as e:
-    logger.error(f"Unexpected error during Redis initialization: {str(e)}")
-    logger.warning(
-        "Starting without Redis features (auth, cache, rate limiting, batch processing)",
-    )
-    redis_client = None
-    batch_processor = None
-
-
-# Handle graceful shutdown
-def handle_shutdown(signum, frame):
-    """Handle shutdown signals."""
-    logger.info("Received shutdown signal, stopping server...")
-    sys.exit(0)
-
-
-signal.signal(signal.SIGINT, handle_shutdown)
-signal.signal(signal.SIGTERM, handle_shutdown)
-
+redis_client = None
+batch_processor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan events for the FastAPI application."""
+    global redis_client, batch_processor
+    
     # Startup
     logger.info("Starting AORBIT...")
 
-    # Initialize enterprise security framework
-    if redis_client:
-        from agentorchestrator.security.integration import initialize_security
+    try:
+        # Create Redis client
+        redis_client = await create_redis_client()
+        if not redis_client:
+            logger.error("Failed to create Redis client")
+            raise ConnectionError("Redis client creation failed")
 
-        security = initialize_security(redis_client)
+        # Test connection
+        if not await redis_client.ping():
+            logger.error("Redis ping failed")
+            raise ConnectionError("Redis ping failed")
+
+        # Initialize API keys
+        await initialize_api_keys(redis_client)
+        # Create batch processor
+        batch_processor = BatchProcessor(redis_client)
+        logger.info("Redis features initialized successfully")
+
+        # Initialize enterprise security framework
+        from agentorchestrator.security.integration import initialize_security
+        security = await initialize_security(redis_client)
         app.state.security = security
         logger.info("Enterprise security framework initialized")
-    else:
-        logger.warning("Redis client not available, security features will be limited")
 
-    # Start batch processor if available
-    if batch_processor:
-        # Start batch processor
-        async def get_workflow_func(agent_name: str):
-            """Get workflow function for agent."""
-            try:
-                module = __import__(
-                    f"src.routes.{agent_name}.ao_agent",
-                    fromlist=["workflow"],
-                )
-                return module.workflow
-            except ImportError:
-                return None
+        # Start batch processor if available
+        if batch_processor:
+            # Start batch processor
+            async def get_workflow_func(agent_name: str):
+                """Get workflow function for agent."""
+                try:
+                    module = __import__(
+                        f"src.routes.{agent_name}.ao_agent",
+                        fromlist=["workflow"],
+                    )
+                    return module.workflow
+                except ImportError:
+                    return None
 
-        await batch_processor.start_processing(get_workflow_func)
-        logger.info("Batch processor started")
+            await batch_processor.start_processing(get_workflow_func)
+            logger.info("Batch processor started")
+
+    except ConnectionError as e:
+        logger.error(f"Redis connection error: {str(e)}")
+        logger.warning(
+            "Starting without Redis features (auth, cache, rate limiting, batch processing)",
+        )
+        redis_client = None
+        batch_processor = None
+    except Exception as e:
+        logger.error(f"Unexpected error during initialization: {str(e)}")
+        logger.warning(
+            "Starting without Redis features (auth, cache, rate limiting, batch processing)",
+        )
+        redis_client = None
+        batch_processor = None
 
     # Startup complete
     yield
@@ -215,6 +206,11 @@ async def lifespan(app: FastAPI):
     if batch_processor:
         await batch_processor.stop_processing()
         logger.info("Batch processor stopped")
+
+    # Close Redis connection
+    if redis_client:
+        await redis_client.close()
+        logger.info("Redis connection closed")
 
 
 app = FastAPI(
@@ -277,14 +273,6 @@ metrics_config = MetricsConfig(
     prefix=os.getenv("METRICS_PREFIX", "ao"),
 )
 app.add_middleware(MetricsMiddleware, config=metrics_config)
-
-# Initialize enterprise security framework after middleware setup
-if redis_client:
-    from agentorchestrator.security.integration import initialize_security
-
-    security = initialize_security(redis_client)
-    app.state.security = security
-    logger.info("Enterprise security framework initialized")
 
 # Add security dependency to all routes in the API router
 for route in api_router.routes:

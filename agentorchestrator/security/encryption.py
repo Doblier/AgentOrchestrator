@@ -26,11 +26,18 @@ class Encryptor:
 
         Args:
             key (str, optional): Base64-encoded encryption key. If not provided, a new key will be generated.
+
+        Raises:
+            ValueError: If the key is empty or invalid.
         """
-        if key:
+        if key is not None:
+            if not key or not key.strip():
+                raise ValueError("Encryption key cannot be empty")
+            self.key = key
             self.fernet = Fernet(key.encode())
         else:
             key = Fernet.generate_key()
+            self.key = key.decode()
             self.fernet = Fernet(key)
 
     def encrypt(self, data: str) -> str:
@@ -66,7 +73,7 @@ class Encryptor:
         Returns:
             str: Base64-encoded encryption key.
         """
-        return self.fernet._key.decode()
+        return self.key
 
 
 def initialize_encryption(env_key_name: str = "ENCRYPTION_KEY") -> Encryptor:
