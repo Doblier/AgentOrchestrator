@@ -5,171 +5,94 @@ This module provides encryption services for sensitive data,
 supporting both at-rest and in-transit encryption for financial applications.
 """
 
-import base64
+from base64 import b64encode, b64decode
 import json
-import logging
 import os
 from typing import Any
 
 from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from loguru import logger
 
-# Set up logger
-logger = logging.getLogger("aorbit.encryption")
+class EncryptionError(Exception):
+    """Exception raised for encryption-related errors."""
+    pass
 
 
 class Encryptor:
-    """Simple encryption service for sensitive data."""
+    """Encryption manager for the security framework."""
 
-    def __init__(self, key: str | None = None):
-        """Initialize the encryptor.
-
-        Args:
-            key: Base64-encoded encryption key, or None to generate a new one
-        """
-        self._key = key or self._generate_key()
-        self._fernet = Fernet(
-            self._key.encode() if isinstance(self._key, str) else self._key
-        )
-
-    def get_key(self) -> str:
-        """Get the encryption key.
-
-        Returns:
-            Base64-encoded encryption key
-        """
-        return self._key
-
-    @staticmethod
-    def _generate_key() -> str:
-        """Generate a new encryption key.
-
-        Returns:
-            Base64-encoded encryption key
-        """
-        key = Fernet.generate_key()
-        return key.decode()
-
-    @staticmethod
-    def derive_key_from_password(
-        password: str, salt: bytes | None = None
-    ) -> dict[str, str]:
-        """Derive an encryption key from a password.
+    def __init__(self, key: str = None):
+        """Initialize the encryption manager.
 
         Args:
-            password: Password to derive key from
-            salt: Salt to use, or None to generate a new one
-
-        Returns:
-            Dictionary with 'key' and 'salt'
+            key (str, optional): Base64-encoded encryption key. If not provided, a new key will be generated.
         """
-        if salt is None:
-            salt = os.urandom(16)
+        if key:
+            self.fernet = Fernet(key.encode())
+        else:
+            key = Fernet.generate_key()
+            self.fernet = Fernet(key)
 
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-            backend=default_backend(),
-        )
-
-        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        return {
-            "key": key.decode(),
-            "salt": base64.b64encode(salt).decode(),
-        }
-
-    def encrypt(self, data: str | bytes | dict | Any) -> str:
+    def encrypt(self, data: str) -> str:
         """Encrypt data.
 
         Args:
-            data: Data to encrypt (string, bytes, or JSON-serializable object)
+            data (str): Data to encrypt.
 
         Returns:
-            Base64-encoded encrypted data
+            str: Base64-encoded encrypted data.
         """
-        if isinstance(data, dict):
-            data = json.dumps(data)
+        # Encrypt data
+        encrypted = self.fernet.encrypt(data.encode())
+        return b64encode(encrypted).decode()
 
-        if not isinstance(data, bytes):
-            data = str(data).encode()
-
-        encrypted = self._fernet.encrypt(data)
-        return base64.b64encode(encrypted).decode()
-
-    def decrypt(self, encrypted_data: str) -> bytes:
+    def decrypt(self, data: str) -> str:
         """Decrypt data.
 
         Args:
-            encrypted_data: Base64-encoded encrypted data
+            data (str): Base64-encoded encrypted data.
 
         Returns:
-            Decrypted data as bytes
+            str: Decrypted data.
         """
-        try:
-            decoded = base64.b64decode(encrypted_data)
-            return self._fernet.decrypt(decoded)
-        except Exception as e:
-            logger.error(f"Decryption error: {e}")
-            raise ValueError("Failed to decrypt data") from e
+        # Decode base64 and decrypt
+        encrypted = b64decode(data.encode())
+        decrypted = self.fernet.decrypt(encrypted)
+        return decrypted.decode()
 
-    def decrypt_to_string(self, encrypted_data: str) -> str:
-        """Decrypt data to string.
-
-        Args:
-            encrypted_data: Base64-encoded encrypted data
+    def get_key(self) -> str:
+        """Get the base64-encoded encryption key.
 
         Returns:
-            Decrypted data as string
+            str: Base64-encoded encryption key.
         """
-        return self.decrypt(encrypted_data).decode()
-
-    def decrypt_to_json(self, encrypted_data: str) -> dict:
-        """Decrypt data to JSON.
-
-        Args:
-            encrypted_data: Base64-encoded encrypted data
-
-        Returns:
-            Decrypted data as JSON
-        """
-        return json.loads(self.decrypt_to_string(encrypted_data))
+        return self.fernet._key.decode()
 
 
-def initialize_encryption(encryption_key: str | None = None) -> Encryptor | None:
-    """Initialize the encryption service.
+def initialize_encryption(env_key_name: str = "ENCRYPTION_KEY") -> Encryptor:
+    """Initialize the encryption manager.
 
     Args:
-        encryption_key: Optional encryption key to use
+        env_key_name: Name of the environment variable containing the encryption key.
 
     Returns:
-        Initialized Encryptor or None if encryption is not configured
+        An initialized Encryptor instance.
+
+    Raises:
+        EncryptionError: If the encryption key is not found or invalid.
     """
-    # Get key from environment if not provided
-    if encryption_key is None:
-        encryption_key = os.environ.get("AORBIT_ENCRYPTION_KEY")
+    # Get encryption key from environment
+    encryption_key = os.getenv(env_key_name)
+    if not encryption_key:
+        raise EncryptionError(f"Encryption key not found in environment variable {env_key_name}")
 
+    # Initialize encryptor
     try:
-        if not encryption_key:
-            # Generate a key for development environments
-            logger.warning(
-                "No encryption key provided, generating a new one. This is not recommended for production."
-            )
-            encryptor = Encryptor()
-            logger.info(
-                f"Generated new encryption key. Use this key for consistent encryption: {encryptor.get_key()}"
-            )
-        else:
-            encryptor = Encryptor(key=encryption_key)
-            logger.info("Encryption service initialized with provided key")
-
+        encryptor = Encryptor(encryption_key)
+        logger.info("Encryption manager initialized successfully")
         return encryptor
     except Exception as e:
-        logger.error(f"Failed to initialize encryption: {e}")
-        return None
+        raise EncryptionError(f"Failed to initialize encryption manager: {str(e)}") from e
 
 
 class EncryptedField:
@@ -192,7 +115,7 @@ class EncryptedField:
         Returns:
             Encrypted value
         """
-        return self.encryption_manager.encrypt(value)
+        return self.encryption_manager.encrypt(str(value))
 
     def decrypt(self, value: str) -> Any:
         """Decrypt a value.
@@ -205,10 +128,10 @@ class EncryptedField:
         """
         try:
             # Try to decode as JSON first
-            return self.encryption_manager.decrypt_to_json(value)
+            return self.encryption_manager.decrypt(value)
         except (json.JSONDecodeError, ValueError):
             # If not JSON, return as string
-            return self.encryption_manager.decrypt_to_string(value)
+            return self.encryption_manager.decrypt(value)
 
 
 class DataProtectionService:
@@ -238,7 +161,7 @@ class DataProtectionService:
 
         for field in sensitive_fields:
             if field in result and result[field] is not None:
-                result[field] = self.encryption_manager.encrypt(result[field])
+                result[field] = self.encryption_manager.encrypt(str(result[field]))
 
         return result
 
@@ -259,9 +182,7 @@ class DataProtectionService:
         for field in sensitive_fields:
             if field in result and result[field] is not None:
                 try:
-                    result[field] = self.encryption_manager.decrypt_to_str(
-                        result[field]
-                    )
+                    result[field] = self.encryption_manager.decrypt(result[field])
                     # Try to parse as JSON if possible
                     try:
                         result[field] = json.loads(result[field])
@@ -300,31 +221,3 @@ class DataProtectionService:
         )
 
         return masked_text
-
-
-def initialize_encryption(env_key_name: str = "ENCRYPTION_KEY") -> Encryptor:
-    """Initialize the encryption manager.
-
-    Args:
-        env_key_name: Name of the environment variable containing the encryption key
-
-    Returns:
-        Initialized encryption manager
-    """
-    key = os.environ.get(env_key_name)
-
-    if not key:
-        logger.warning(
-            f"No encryption key found in environment variable {env_key_name}. "
-            "Generating a new key. This is not recommended for production.",
-        )
-        encryption_manager = Encryptor()
-        logger.info(
-            f"Generated new encryption key. Set {env_key_name}={encryption_manager.get_key()} "
-            "in your environment to use this key consistently.",
-        )
-    else:
-        encryption_manager = Encryptor(key)
-        logger.info("Encryption initialized with key from environment variable.")
-
-    return encryption_manager

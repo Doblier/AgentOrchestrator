@@ -11,6 +11,7 @@ from agentorchestrator.security.audit import (
     log_api_request,
     log_auth_failure,
     log_auth_success,
+    AuditEvent,
 )
 
 

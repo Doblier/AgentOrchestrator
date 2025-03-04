@@ -1,108 +1,104 @@
-"""
-Integration module for security components.
-
-This module provides a unified interface for integrating all security
-components into the main application.
-"""
+"""Security integration module for the AORBIT framework."""
 
 import json
-import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, Depends
 from fastapi.security import APIKeyHeader
+from loguru import logger
 from redis import Redis
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agentorchestrator.security.audit import (
     AuditEventType,
     initialize_audit_logger,
-    log_api_request,
     log_auth_failure,
     log_auth_success,
+    log_api_request,
 )
 from agentorchestrator.security.encryption import initialize_encryption
-from agentorchestrator.security.rbac import (
-    initialize_rbac,
-)
-
-logger = logging.getLogger(__name__)
+from agentorchestrator.security.rbac import initialize_rbac
 
 
 class SecurityIntegration:
-    """Integrates all security components into the application."""
+    """Security integration for the AORBIT framework."""
 
     def __init__(
         self,
         app: FastAPI,
-        redis_client: Redis,
+        redis: Redis,
+        enable_security: bool = True,
+        enable_rbac: bool = True,
+        enable_audit: bool = True,
+        enable_encryption: bool = True,
         api_key_header_name: str = "X-API-Key",
-        audit_enabled: bool = True,
-        rbac_enabled: bool = True,
-        encryption_enabled: bool = True,
-    ):
+        ip_whitelist: Optional[list[str]] = None,
+        encryption_key: Optional[str] = None,
+        rbac_config: Optional[dict] = None,
+    ) -> None:
         """Initialize the security integration.
 
         Args:
-            app: FastAPI application
-            redis_client: Redis client
-            api_key_header_name: Name of the API key header
-            audit_enabled: Whether to enable audit logging
-            rbac_enabled: Whether to enable RBAC
-            encryption_enabled: Whether to enable encryption
+            app: FastAPI application instance
+            redis: Redis client instance
+            enable_security: Whether to enable security features
+            enable_rbac: Whether to enable RBAC
+            enable_audit: Whether to enable audit logging
+            enable_encryption: Whether to enable encryption
+            api_key_header_name: Name of the header containing the API key
+            ip_whitelist: List of whitelisted IP addresses
+            encryption_key: Encryption key for sensitive data
+            rbac_config: RBAC configuration
         """
         self.app = app
-        self.redis_client = redis_client
+        self.redis = redis
+        self.enable_security = enable_security
+        self.rbac_enabled = enable_rbac
+        self.audit_enabled = enable_audit
+        self.encryption_enabled = enable_encryption
         self.api_key_header_name = api_key_header_name
-        self.audit_enabled = audit_enabled
-        self.rbac_enabled = rbac_enabled
-        self.encryption_enabled = encryption_enabled
-
-        # Initialize placeholders for components
+        self.ip_whitelist = ip_whitelist or []
+        self.encryption_manager = None
         self.rbac_manager = None
         self.audit_logger = None
-        self.encryption_manager = None
-        self.data_protection = None
 
-        # Note: We don't call _initialize_components or _setup_middleware here
-        # They will be called separately by initialize_security
+        # Initialize components
+        self._setup_middleware(encryption_key, rbac_config)
 
-    async def _initialize_components(self):
-        """Initialize security components."""
-        if self.rbac_enabled:
-            self.rbac_manager = await initialize_rbac(self.redis_client)
-            self.app.state.rbac_manager = self.rbac_manager
-            logger.info("RBAC system initialized")
+    def _setup_middleware(self, encryption_key: Optional[str] = None, rbac_config: Optional[dict] = None):
+        """Set up security middleware components.
 
-        if self.audit_enabled:
-            self.audit_logger = await initialize_audit_logger(self.redis_client)
-            self.app.state.audit_logger = self.audit_logger
-            logger.info("Audit logging system initialized")
+        Args:
+            encryption_key (Optional[str]): Encryption key for sensitive data
+            rbac_config (Optional[dict]): RBAC configuration
+        """
+        # Initialize encryption
+        if encryption_key:
+            self.encryption_manager = initialize_encryption(encryption_key)
+            logger.info("Encryption initialized")
 
-        if self.encryption_enabled:
-            self.encryption_manager = initialize_encryption()
-            self.data_protection = DataProtectionService(self.encryption_manager)
-            self.app.state.encryption_manager = self.encryption_manager
-            self.app.state.data_protection = self.data_protection
-            logger.info("Encryption system initialized")
+        # Initialize RBAC
+        if rbac_config:
+            self.rbac_manager = initialize_rbac(self.redis, rbac_config)
+            logger.info("RBAC initialized")
 
-        # Add security instance to app state for access in other parts of the application
-        self.app.state.security = self
-
-    def _setup_middleware(self):
-        """Set up security middleware."""
-        # Add API key security scheme to OpenAPI docs
-        api_key_scheme = APIKeyHeader(name=self.api_key_header_name, auto_error=False)
+        # Initialize audit logging
+        self.audit_logger = initialize_audit_logger(self.redis)
+        if self.audit_logger:
+            logger.info("Audit logging initialized")
 
         # Using add_middleware instead of the decorator to avoid the timing issue
-        self.app.add_middleware(
-            BaseHTTPMiddleware,
-            dispatch=self._security_middleware_dispatch,
-        )
+        self.app.middleware("http")(self._security_middleware)
 
-    async def _security_middleware_dispatch(self, request: Request, call_next):
+        # Add API key security scheme to OpenAPI docs if security is enabled
+        if self.enable_security:
+            self.app.add_security_scheme(
+                "apiKey",
+                APIKeyHeader(name=self.api_key_header_name, auto_error=False),
+            )
+
+    async def _security_middleware(self, request: Request, call_next):
         """Security middleware for request processing.
 
         Args:
@@ -136,14 +132,14 @@ class SecurityIntegration:
 
             if api_key and self.rbac_manager:
                 # Get role from API key
-                redis_role = await self.redis_client.get(f"apikey:{api_key}")
+                redis_role = await self.redis.get(f"apikey:{api_key}")
 
                 if redis_role:
                     role = redis_role.decode("utf-8")
                     request.state.role = role
 
                     # Check IP whitelist if applicable
-                    ip_whitelist = await self.redis_client.get(
+                    ip_whitelist = await self.redis.get(
                         f"apikey:{api_key}:ip_whitelist"
                     )
                     if ip_whitelist:
