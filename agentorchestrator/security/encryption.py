@@ -13,8 +13,10 @@ from typing import Any
 from cryptography.fernet import Fernet
 from loguru import logger
 
+
 class EncryptionError(Exception):
     """Exception raised for encryption-related errors."""
+
     pass
 
 
@@ -91,7 +93,9 @@ def initialize_encryption(env_key_name: str = "ENCRYPTION_KEY") -> Encryptor:
     # Get encryption key from environment
     encryption_key = os.getenv(env_key_name)
     if not encryption_key:
-        raise EncryptionError(f"Encryption key not found in environment variable {env_key_name}")
+        raise EncryptionError(
+            f"Encryption key not found in environment variable {env_key_name}"
+        )
 
     # Initialize encryptor
     try:
@@ -99,7 +103,9 @@ def initialize_encryption(env_key_name: str = "ENCRYPTION_KEY") -> Encryptor:
         logger.info("Encryption manager initialized successfully")
         return encryptor
     except Exception as e:
-        raise EncryptionError(f"Failed to initialize encryption manager: {str(e)}") from e
+        raise EncryptionError(
+            f"Failed to initialize encryption manager: {str(e)}"
+        ) from e
 
 
 class EncryptedField:

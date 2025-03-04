@@ -26,7 +26,9 @@ class TestSecurityIntegration:
 
     @pytest.mark.asyncio
     async def test_initialization_disabled_components(
-        self, mock_app: MagicMock, mock_redis: AsyncMock,
+        self,
+        mock_app: MagicMock,
+        mock_redis: AsyncMock,
     ) -> None:
         """Test initialization with disabled components."""
         with (
@@ -63,7 +65,8 @@ class TestSecurityIntegration:
 
     @pytest.mark.asyncio
     async def test_security_middleware(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the security middleware."""
         # Mock request and handler
@@ -95,7 +98,8 @@ class TestSecurityIntegration:
 
     @pytest.mark.asyncio
     async def test_security_middleware_invalid_key(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the security middleware with an invalid API key."""
         # Mock request and handler
@@ -121,7 +125,8 @@ class TestSecurityIntegration:
 
     @pytest.mark.asyncio
     async def test_security_middleware_ip_whitelist(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the security middleware with IP whitelist."""
         # Mock request and handler
@@ -143,7 +148,8 @@ class TestSecurityIntegration:
         handler.assert_called_once_with(request)
 
     def test_check_permission_dependency(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the check_permission_dependency method."""
         # Mock request
@@ -156,7 +162,9 @@ class TestSecurityIntegration:
 
         # Check permission
         result = security_integration.check_permission_dependency(
-            request, "read:data", "resource1",
+            request,
+            "read:data",
+            "resource1",
         )
 
         # Verify result
@@ -166,7 +174,8 @@ class TestSecurityIntegration:
         request.state.security.rbac_manager.check_permission.assert_called_once()
 
     def test_check_permission_dependency_no_permission(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the check_permission_dependency method when permission is denied."""
         # Mock request
@@ -180,7 +189,9 @@ class TestSecurityIntegration:
         # Check permission and expect an exception
         with pytest.raises(HTTPException) as exc_info:
             security_integration.check_permission_dependency(
-                request, "read:data", "resource1",
+                request,
+                "read:data",
+                "resource1",
             )
 
         # Verify exception
@@ -191,18 +202,21 @@ class TestSecurityIntegration:
         request.state.security.rbac_manager.check_permission.assert_called_once()
 
     def test_require_permission(
-        self, security_integration: SecurityIntegration,
+        self,
+        security_integration: SecurityIntegration,
     ) -> None:
         """Test the require_permission method."""
         # Mock the dependency
         with patch.object(
-            security_integration, "check_permission_dependency",
+            security_integration,
+            "check_permission_dependency",
         ) as mock_dependency:
             mock_dependency.return_value = "dependency_result"
 
             # Create dependency
             dependency = security_integration.require_permission(
-                "read:data", "resource1",
+                "read:data",
+                "resource1",
             )
 
             # Call the dependency
@@ -213,12 +227,16 @@ class TestSecurityIntegration:
 
             # Verify dependency call
             mock_dependency.assert_called_once_with(
-                "request", "read:data", "resource1",
+                "request",
+                "read:data",
+                "resource1",
             )
 
 
 def test_initialize_security(
-    mock_getlogger: MagicMock, mock_app: MagicMock, mock_redis: AsyncMock,
+    mock_getlogger: MagicMock,
+    mock_app: MagicMock,
+    mock_redis: AsyncMock,
 ) -> None:
     """Test the initialize_security function."""
     # Mock logger
@@ -240,7 +258,9 @@ def test_initialize_security(
 
 
 def test_initialize_security_disabled(
-    mock_getlogger: MagicMock, mock_app: MagicMock, mock_redis: AsyncMock,
+    mock_getlogger: MagicMock,
+    mock_app: MagicMock,
+    mock_redis: AsyncMock,
 ) -> None:
     """Test the initialize_security function when security is disabled."""
     # Mock logger

@@ -5,12 +5,10 @@ Main entry point for the AgentOrchestrator application.
 import json
 import logging
 import os
-import signal
-import sys
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import asyncio
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Security, status
@@ -132,11 +130,12 @@ async def create_redis_client(max_retries=5, retry_delay=2):
 redis_client = None
 batch_processor = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan events for the FastAPI application."""
     global redis_client, batch_processor
-    
+
     # Startup
     logger.info("Starting AORBIT...")
 
@@ -160,6 +159,7 @@ async def lifespan(app: FastAPI):
 
         # Initialize enterprise security framework
         from agentorchestrator.security.integration import initialize_security
+
         security = await initialize_security(redis_client)
         app.state.security = security
         logger.info("Enterprise security framework initialized")
@@ -315,8 +315,6 @@ def run_server():
         raise
     finally:
         if batch_processor and batch_processor._processing:
-            import asyncio
-
             asyncio.run(batch_processor.stop_processing())
 
 

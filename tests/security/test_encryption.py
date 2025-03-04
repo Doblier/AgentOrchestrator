@@ -1,8 +1,7 @@
 """Test cases for the encryption module."""
 
 import os
-from base64 import b64encode, b64decode
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from cryptography.fernet import Fernet
@@ -87,14 +86,14 @@ class TestEncryptor:
         """Test that different keys produce different results."""
         key1 = Fernet.generate_key().decode()
         key2 = Fernet.generate_key().decode()
-        
+
         encryptor1 = Encryptor(key1)
         encryptor2 = Encryptor(key2)
-        
+
         original = "This is a secret message!"
         encrypted1 = encryptor1.encrypt(original)
         encrypted2 = encryptor2.encrypt(original)
-        
+
         assert encrypted1 != encrypted2
         assert encryptor1.decrypt(encrypted1) == original
         assert encryptor2.decrypt(encrypted2) == original
@@ -145,7 +144,9 @@ class TestDataProtectionService:
         }
         sensitive_fields = ["ssn", "credit_card"]
 
-        encrypted_data = data_protection_service.encrypt_sensitive_data(data, sensitive_fields)
+        encrypted_data = data_protection_service.encrypt_sensitive_data(
+            data, sensitive_fields
+        )
 
         assert encrypted_data["name"] == "John Doe"
         assert encrypted_data["ssn"] != "123-45-6789"
@@ -160,10 +161,14 @@ class TestDataProtectionService:
             "credit_card": "4111-1111-1111-1111",
         }
         sensitive_fields = ["ssn", "credit_card"]
-        encrypted_data = data_protection_service.encrypt_sensitive_data(data, sensitive_fields)
+        encrypted_data = data_protection_service.encrypt_sensitive_data(
+            data, sensitive_fields
+        )
 
         # Then decrypt it
-        decrypted_data = data_protection_service.decrypt_sensitive_data(encrypted_data, sensitive_fields)
+        decrypted_data = data_protection_service.decrypt_sensitive_data(
+            encrypted_data, sensitive_fields
+        )
 
         assert decrypted_data["name"] == "John Doe"
         assert decrypted_data["ssn"] == "123-45-6789"
@@ -178,7 +183,9 @@ class TestDataProtectionService:
         }
         sensitive_fields = ["ssn", "credit_card"]
 
-        decrypted_data = data_protection_service.decrypt_sensitive_data(data, sensitive_fields)
+        decrypted_data = data_protection_service.decrypt_sensitive_data(
+            data, sensitive_fields
+        )
 
         assert decrypted_data["name"] == "John Doe"
         assert decrypted_data["ssn"] is None

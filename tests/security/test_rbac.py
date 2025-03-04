@@ -20,6 +20,7 @@ def mock_redis_client() -> MagicMock:
     """Create a mock Redis client for testing."""
     return MagicMock()
 
+
 @pytest.fixture
 def test_app(mock_redis_client: MagicMock) -> FastAPI:
     """Create a test FastAPI application with security enabled."""
@@ -59,10 +60,12 @@ def test_app(mock_redis_client: MagicMock) -> FastAPI:
 
     return app
 
+
 @pytest.fixture
 def client(test_app: FastAPI) -> TestClient:
     """Create a test client."""
     return TestClient(test_app)
+
 
 @pytest.fixture
 def rbac_manager(mock_redis_client: MagicMock) -> RBACManager:
@@ -76,7 +79,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_create_role(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test creating a new role."""
         # Set up mock
@@ -107,7 +112,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_get_role(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test retrieving a role."""
         # Set up mock
@@ -133,7 +140,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_get_role_not_found(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test retrieving a non-existent role."""
         # Set up mock
@@ -151,7 +160,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_get_effective_permissions(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test getting effective permissions for roles."""
         # Set up mock
@@ -173,7 +184,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_create_api_key(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test creating an API key."""
         # Set up mock
@@ -182,7 +195,10 @@ class TestRBACManager:
 
         # Create API key
         api_key = await rbac_manager.create_api_key(
-            name="test_key", roles=["admin"], user_id="user123", rate_limit=100,
+            name="test_key",
+            roles=["admin"],
+            user_id="user123",
+            rate_limit=100,
         )
 
         # Verify API key was created
@@ -197,7 +213,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_get_api_key(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test getting API key data."""
         # Set up mock
@@ -221,7 +239,9 @@ class TestRBACManager:
 
     @pytest.mark.asyncio
     async def test_has_permission(
-        self, rbac_manager: RBACManager, mock_redis_client: MagicMock,
+        self,
+        rbac_manager: RBACManager,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test checking permissions."""
         # Set up mock

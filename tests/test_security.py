@@ -16,6 +16,7 @@ def mock_redis_client() -> MagicMock:
     """Create a mock Redis client for testing."""
     return MagicMock()
 
+
 @pytest.fixture
 def test_app(mock_redis_client: MagicMock) -> FastAPI:
     """Create a test FastAPI application with security enabled."""
@@ -55,16 +56,20 @@ def test_app(mock_redis_client: MagicMock) -> FastAPI:
 
     return app
 
+
 @pytest.fixture
 def client(test_app: FastAPI) -> TestClient:
     """Create a test client."""
     return TestClient(test_app)
 
+
 class TestSecurityFramework:
     """Test cases for the AORBIT Enterprise Security Framework."""
 
     def test_rbac_permission_denied(
-        self, client: TestClient, mock_redis_client: MagicMock,
+        self,
+        client: TestClient,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test that unauthorized access is denied."""
         # Mock Redis to deny permission
@@ -78,7 +83,9 @@ class TestSecurityFramework:
         assert "Unauthorized" in response.json()["detail"]
 
     def test_rbac_permission_granted(
-        self, client: TestClient, mock_redis_client: MagicMock,
+        self,
+        client: TestClient,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test that authorized access is granted."""
         # Mock Redis to grant permission
@@ -99,7 +106,8 @@ class TestSecurityFramework:
         assert response.json() == {"message": "Access granted"}
 
     def test_encryption_lifecycle(
-        self, client: TestClient,
+        self,
+        client: TestClient,
     ) -> None:
         """Test encryption and decryption of data."""
         # Data to encrypt
@@ -119,7 +127,9 @@ class TestSecurityFramework:
         assert decrypted_data == test_data
 
     def test_audit_logging(
-        self, client: TestClient, mock_redis_client: MagicMock,
+        self,
+        client: TestClient,
+        mock_redis_client: MagicMock,
     ) -> None:
         """Test that audit logging captures events."""
         # Mock Redis lpush method for audit logging
@@ -135,6 +145,7 @@ class TestSecurityFramework:
         mock_redis_client.lpush.assert_called_once()
         assert "audit:logs" in mock_redis_client.lpush.call_args[0]
 
+
 @pytest.mark.parametrize(
     ("api_key", "expected_status"),
     [
@@ -144,7 +155,8 @@ class TestSecurityFramework:
     ],
 )
 def test_api_security_middleware(
-    api_key: str | None, expected_status: int,
+    api_key: str | None,
+    expected_status: int,
 ) -> None:
     """Test the API security middleware."""
     app = FastAPI()
@@ -169,6 +181,7 @@ def test_api_security_middleware(
 
     # Verify response status
     assert response.status_code == expected_status
+
 
 def test_initialize_security_disabled() -> None:
     """Test initializing security when it's disabled."""

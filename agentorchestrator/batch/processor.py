@@ -122,10 +122,7 @@ class BatchProcessor:
 
     async def _save_job(self, job: BatchJob) -> None:
         """Save job to Redis."""
-        await self.redis.set(
-            self._get_job_key(job.id),
-            job.model_dump_json()
-        )
+        await self.redis.set(self._get_job_key(job.id), job.model_dump_json())
 
     def _processor_loop(self, get_workflow_func):
         """Background processor loop.

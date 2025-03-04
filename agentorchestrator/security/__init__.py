@@ -19,5 +19,5 @@ __all__ = [
     "RBACManager",
     "rbac",
     "audit",
-    "encryption"
+    "encryption",
 ]

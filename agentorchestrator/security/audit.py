@@ -8,7 +8,6 @@ search capabilities, and compliance features.
 
 import json
 import logging
-import time
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -138,22 +137,26 @@ class AuditLogger:
         """Log an audit event."""
         # Convert timestamp to Unix timestamp for Redis
         timestamp = datetime.fromisoformat(event.timestamp).timestamp()
-        
+
         # Add event to Redis with multiple indexes
-        await self.redis.zadd('audit:index:timestamp', {event.event_id: timestamp})
-        await self.redis.zadd(f'audit:index:type:{event.event_type}', {event.event_id: timestamp})
+        await self.redis.zadd("audit:index:timestamp", {event.event_id: timestamp})
+        await self.redis.zadd(
+            f"audit:index:type:{event.event_type}", {event.event_id: timestamp}
+        )
         if event.user_id:
-            await self.redis.zadd(f'audit:index:user:{event.user_id}', {event.event_id: timestamp})
-        
+            await self.redis.zadd(
+                f"audit:index:user:{event.user_id}", {event.event_id: timestamp}
+            )
+
         # Store event data
-        await self.redis.hset('audit:events', event.event_id, event.model_dump_json())
-        
+        await self.redis.hset("audit:events", event.event_id, event.model_dump_json())
+
         logger.info(f"Audit event logged: {event.event_type} {event.event_id}")
         return event.event_id
 
     async def get_event_by_id(self, event_id: str) -> Optional[AuditEvent]:
         """Retrieve an audit event by ID."""
-        event_data = await self.redis.hget('audit:events', event_id)
+        event_data = await self.redis.hget("audit:events", event_id)
         if event_data:
             event_dict = json.loads(event_data)
             return AuditEvent.from_dict(event_dict)
@@ -170,29 +173,25 @@ class AuditLogger:
         """Query audit events with filters."""
         # Get the appropriate index based on filters
         if event_type:
-            index_key = f'audit:index:type:{event_type}'
+            index_key = f"audit:index:type:{event_type}"
         elif user_id:
-            index_key = f'audit:index:user:{user_id}'
+            index_key = f"audit:index:user:{user_id}"
         else:
-            index_key = 'audit:index:timestamp'
-        
+            index_key = "audit:index:timestamp"
+
         # Convert timestamps to Unix timestamps for Redis
         start_ts = start_time.timestamp() if start_time else 0
-        end_ts = end_time.timestamp() if end_time else float('inf')
-        
+        end_ts = end_time.timestamp() if end_time else float("inf")
+
         # Get event IDs from the index
         event_ids = self.redis.zrevrangebyscore(
-            index_key,
-            end_ts,
-            start_ts,
-            start=0,
-            num=limit
+            index_key, end_ts, start_ts, start=0, num=limit
         )
-        
+
         # Retrieve events
         events = []
         for event_id in event_ids:
-            event_data = self.redis.hget('audit:events', event_id.decode())
+            event_data = self.redis.hget("audit:events", event_id.decode())
             if event_data:
                 event_dict = json.loads(event_data)
                 event = AuditEvent.from_dict(event_dict)
@@ -200,7 +199,7 @@ class AuditLogger:
                 if user_id and event.user_id != user_id:
                     continue
                 events.append(event)
-        
+
         return events
 
     def export_events(
@@ -216,12 +215,11 @@ class AuditLogger:
             "time_range": {
                 "start": start_time.isoformat() if start_time else None,
                 "end": end_time.isoformat() if end_time else None,
-            }
+            },
         }
-        return json.dumps({
-            "events": [event.model_dump() for event in events],
-            "metadata": metadata
-        })
+        return json.dumps(
+            {"events": [event.model_dump() for event in events], "metadata": metadata}
+        )
 
 
 def initialize_audit_logger(redis_client: Redis) -> AuditLogger:
@@ -323,6 +321,6 @@ def log_api_request(
         status="success" if status_code < 400 else "error",
         message=f"API request completed with status {status_code}",
     )
-    
+
     logger = AuditLogger(redis_client)
     return logger.log_event(event)

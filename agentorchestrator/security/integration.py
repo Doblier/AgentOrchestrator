@@ -1,17 +1,14 @@
 """Security integration module for the AORBIT framework."""
 
 import json
-import os
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, status, Depends
-from fastapi.security import APIKeyHeader
 from loguru import logger
 from redis import Redis
 from starlette.responses import JSONResponse
 
 from agentorchestrator.security.audit import (
-    AuditEvent,
     AuditEventType,
     initialize_audit_logger,
     log_auth_failure,
@@ -67,7 +64,9 @@ class SecurityIntegration:
         # Initialize components
         self._setup_middleware(encryption_key, rbac_config)
 
-    def _setup_middleware(self, encryption_key: Optional[str] = None, rbac_config: Optional[dict] = None):
+    def _setup_middleware(
+        self, encryption_key: Optional[str] = None, rbac_config: Optional[dict] = None
+    ):
         """Set up security middleware components.
 
         Args:
@@ -95,8 +94,7 @@ class SecurityIntegration:
         # Add API key security scheme to OpenAPI docs if security is enabled
         if self.enable_security:
             self.app.add_middleware(
-                "http",
-                dependencies=[Depends(self.check_permission_dependency("*"))]
+                "http", dependencies=[Depends(self.check_permission_dependency("*"))]
             )
 
     async def _security_middleware(self, request: Request, call_next):
@@ -301,51 +299,32 @@ class SecurityIntegration:
         return self.check_permission_dependency(permission, resource_type, resource_id)
 
 
-async def initialize_security(redis_client: Redis) -> SecurityIntegration:
-    """Initialize the security framework.
+async def initialize_security(redis_client: Redis) -> "SecurityIntegration":
+    """Initialize enterprise security framework.
 
     Args:
         redis_client: Redis client instance
 
     Returns:
-        SecurityIntegration instance
+        SecurityIntegration: Initialized security integration
     """
     logger.info("\nInitializing enterprise security framework")
 
     # Initialize RBAC
-    rbac = await initialize_rbac(redis_client)
+    await initialize_rbac(redis_client)
     logger.info("\nRBAC system initialized successfully")
 
     # Initialize audit logging
-    audit_logger = initialize_audit_logger(redis_client)
+    await initialize_audit_logger(redis_client)
     logger.info("\nAudit logging system initialized successfully")
 
-    # Initialize encryption
+    # Initialize encryption service
     try:
-        encryption = initialize_encryption()
+        await initialize_encryption(redis_client)
         logger.info("\nEncryption service initialized successfully")
     except Exception as e:
         logger.error(f"\nError initializing encryption service: {str(e)}")
-        encryption = None
 
     # Create security integration instance
-    security = SecurityIntegration(
-        app=FastAPI(),
-        redis=redis_client,
-        enable_security=True,
-        enable_rbac=True,
-        enable_audit=True,
-        enable_encryption=True,
-    )
-
-    # Log initialization event
-    if audit_logger:
-        event = AuditEvent(
-            event_type=AuditEventType.ADMIN,
-            action="initialization",
-            status="success",
-            message="Security framework initialized",
-        )
-        audit_logger.log_event(event)
-
+    security = SecurityIntegration(redis_client)
     return security

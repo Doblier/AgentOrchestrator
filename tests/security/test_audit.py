@@ -108,7 +108,7 @@ class TestAuditEvent:
             "status": "success",
             "message": "User logged in successfully",
         }
-        
+
         event = AuditEvent.from_dict(data)
         assert event.event_id == "test-event"
         assert event.event_type == AuditEventType.AUTHENTICATION
@@ -138,22 +138,31 @@ class TestAuditLogger:
         # Verify Redis was called with expected arguments for each index
         assert mock_redis.zadd.call_count == 3
         timestamp = datetime.fromisoformat(event.timestamp).timestamp()
-        mock_redis.zadd.assert_any_call('audit:index:timestamp', {event.event_id: timestamp})
-        mock_redis.zadd.assert_any_call('audit:index:type:AuditEventType.AUTHENTICATION', {event.event_id: timestamp})
-        mock_redis.zadd.assert_any_call('audit:index:user:user123', {event.event_id: timestamp})
+        mock_redis.zadd.assert_any_call(
+            "audit:index:timestamp", {event.event_id: timestamp}
+        )
+        mock_redis.zadd.assert_any_call(
+            "audit:index:type:AuditEventType.AUTHENTICATION",
+            {event.event_id: timestamp},
+        )
+        mock_redis.zadd.assert_any_call(
+            "audit:index:user:user123", {event.event_id: timestamp}
+        )
 
     def test_get_event_by_id(self, audit_logger, mock_redis):
         """Test retrieving an event by ID."""
         # Configure mock to return a serialized event
-        mock_redis.hget.return_value = json.dumps({
-            "event_id": "test-event",
-            "timestamp": datetime.now().isoformat(),
-            "event_type": "authentication",  # Changed to match enum value
-            "user_id": "user123",
-            "action": "login",
-            "status": "success",
-            "message": "User logged in successfully",
-        })
+        mock_redis.hget.return_value = json.dumps(
+            {
+                "event_id": "test-event",
+                "timestamp": datetime.now().isoformat(),
+                "event_type": "authentication",  # Changed to match enum value
+                "user_id": "user123",
+                "action": "login",
+                "status": "success",
+                "message": "User logged in successfully",
+            }
+        )
 
         event = audit_logger.get_event_by_id("test-event")
         assert event.event_id == "test-event"
@@ -177,25 +186,29 @@ class TestAuditLogger:
         # Configure mock to return serialized events
         def mock_hget(key, field):
             if field == "event1":
-                return json.dumps({
-                    "event_id": "event1",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user123",
-                    "action": "login",
-                    "status": "success",
-                    "message": "User logged in successfully",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event1",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user123",
+                        "action": "login",
+                        "status": "success",
+                        "message": "User logged in successfully",
+                    }
+                )
             if field == "event2":
-                return json.dumps({
-                    "event_id": "event2",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user456",
-                    "action": "login",
-                    "status": "failure",
-                    "message": "Invalid credentials",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event2",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user456",
+                        "action": "login",
+                        "status": "failure",
+                        "message": "Invalid credentials",
+                    }
+                )
             return None
 
         mock_redis.hget.side_effect = mock_hget
@@ -218,25 +231,29 @@ class TestAuditLogger:
         # Configure mock to return serialized events
         def mock_hget(key, field):
             if field == "event1":
-                return json.dumps({
-                    "event_id": "event1",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user123",
-                    "action": "login",
-                    "status": "success",
-                    "message": "User logged in successfully",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event1",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user123",
+                        "action": "login",
+                        "status": "success",
+                        "message": "User logged in successfully",
+                    }
+                )
             if field == "event2":
-                return json.dumps({
-                    "event_id": "event2",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user456",
-                    "action": "login",
-                    "status": "failure",
-                    "message": "Invalid credentials",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event2",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user456",
+                        "action": "login",
+                        "status": "failure",
+                        "message": "Invalid credentials",
+                    }
+                )
             return None
 
         mock_redis.hget.side_effect = mock_hget
@@ -262,25 +279,29 @@ class TestAuditLogger:
         # Configure mock to return serialized events
         def mock_hget(key, field):
             if field == "event1":
-                return json.dumps({
-                    "event_id": "event1",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user123",
-                    "action": "login",
-                    "status": "success",
-                    "message": "User logged in successfully",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event1",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user123",
+                        "action": "login",
+                        "status": "success",
+                        "message": "User logged in successfully",
+                    }
+                )
             if field == "event2":
-                return json.dumps({
-                    "event_id": "event2",
-                    "timestamp": datetime.now().isoformat(),
-                    "event_type": "authentication",  # Using lowercase enum value
-                    "user_id": "user456",
-                    "action": "login",
-                    "status": "failure",
-                    "message": "Invalid credentials",
-                })
+                return json.dumps(
+                    {
+                        "event_id": "event2",
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": "authentication",  # Using lowercase enum value
+                        "user_id": "user456",
+                        "action": "login",
+                        "status": "failure",
+                        "message": "Invalid credentials",
+                    }
+                )
             return None
 
         mock_redis.hget.side_effect = mock_hget
