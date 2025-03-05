@@ -6,11 +6,12 @@ It provides detailed, factual responses to a wide range of questions.
 """
 
 import os
-from typing import Dict, Any
+from typing import Any
+
 from dotenv import load_dotenv
-from langgraph.func import entrypoint, task
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.func import entrypoint, task
 
 # Load environment variables
 load_dotenv()
@@ -24,7 +25,7 @@ model = ChatGoogleGenerativeAI(
 
 
 @task
-def answer_question(question: str) -> Dict[str, Any]:
+def answer_question(question: str) -> dict[str, Any]:
     """
     Generate an answer to the user's question using Gemini AI.
 
@@ -62,7 +63,7 @@ def answer_question(question: str) -> Dict[str, Any]:
 
 
 @entrypoint()
-def run_workflow(question: str) -> Dict[str, Any]:
+def run_workflow(question: str) -> dict[str, Any]:
     """
     Main entry point for the question answering workflow.
 

@@ -4,9 +4,10 @@ Collects and exposes Prometheus metrics.
 """
 
 import time
-from typing import Optional, Callable
+from collections.abc import Callable
+
 from fastapi import Request
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel
 
 
@@ -20,7 +21,7 @@ class MetricsConfig(BaseModel):
 class MetricsCollector:
     """Prometheus metrics collector."""
 
-    def __init__(self, config: Optional[MetricsConfig] = None):
+    def __init__(self, config: MetricsConfig | None = None):
         """Initialize metrics collector.
 
         Args:
@@ -69,7 +70,7 @@ class MetricsCollector:
 class MetricsMiddleware:
     """Prometheus metrics middleware."""
 
-    def __init__(self, app: Callable, config: Optional[MetricsConfig] = None):
+    def __init__(self, app: Callable, config: MetricsConfig | None = None):
         """Initialize metrics middleware.
 
         Args:
@@ -96,14 +97,14 @@ class MetricsMiddleware:
                     (b"content-type", CONTENT_TYPE_LATEST.encode()),
                     (b"content-length", str(len(metrics_data)).encode()),
                 ],
-            }
+            },
         )
 
         await send(
             {
                 "type": "http.response.body",
                 "body": metrics_data,
-            }
+            },
         )
 
     async def __call__(self, scope, receive, send):
@@ -149,22 +150,26 @@ class MetricsMiddleware:
             # Record metrics
             duration = time.time() - start_time
             self.collector.requests_total.labels(
-                method=method, path=path, status=status_code
+                method=method,
+                path=path,
+                status=status_code,
             ).inc()
 
             self.collector.request_duration_seconds.labels(
-                method=method, path=path
+                method=method,
+                path=path,
             ).observe(duration)
 
             # Record agent metrics if applicable
             if path.startswith("/api/v1/agent/"):
                 agent_name = path.split("/")[-1]
                 self.collector.agent_invocations_total.labels(
-                    agent=agent_name, status="success" if status_code < 400 else "error"
+                    agent=agent_name,
+                    status="success" if status_code < 400 else "error",
                 ).inc()
 
                 self.collector.agent_duration_seconds.labels(agent=agent_name).observe(
-                    duration
+                    duration,
                 )
 
             return response
@@ -172,6 +177,8 @@ class MetricsMiddleware:
         except Exception:
             # Record error metrics
             self.collector.requests_total.labels(
-                method=method, path=path, status=500
+                method=method,
+                path=path,
+                status=500,
             ).inc()
             raise

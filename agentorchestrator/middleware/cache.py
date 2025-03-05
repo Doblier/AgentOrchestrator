@@ -4,10 +4,12 @@ Implements response caching using Redis.
 """
 
 import json
-from typing import Optional, Callable, Dict, Any
+from collections.abc import Callable
+from typing import Any
+
 from fastapi import Request
-from redis import Redis
 from pydantic import BaseModel
+from redis import Redis
 from starlette.types import Message
 
 
@@ -23,7 +25,10 @@ class ResponseCache:
     """Redis-based response cache."""
 
     def __init__(
-        self, app: Callable, redis_client: Redis, config: Optional[CacheConfig] = None
+        self,
+        app: Callable,
+        redis_client: Redis,
+        config: CacheConfig | None = None,
     ):
         """Initialize cache.
 
@@ -36,7 +41,19 @@ class ResponseCache:
         self.redis = redis_client
         self.config = config or CacheConfig()
 
-    def _get_cache_key(self, request: Request) -> str:
+    async def _get_request_body(self, request: Request) -> str:
+        """Get request body as string.
+
+        Args:
+            request: FastAPI request
+
+        Returns:
+            str: Request body as string
+        """
+        body = await request.body()
+        return body.decode() if body else ""
+
+    async def _get_cache_key(self, request: Request) -> str:
         """Generate cache key from request.
 
         Args:
@@ -45,9 +62,17 @@ class ResponseCache:
         Returns:
             str: Cache key
         """
-        return f"cache:{request.method}:{request.url.path}:{request.query_params}"
+        # Include API key in cache key to ensure different keys get different caches
+        api_key = request.headers.get("X-API-Key", "")
 
-    async def get_cached_response(self, request: Request) -> Optional[Dict[str, Any]]:
+        # For POST/PUT requests, include body in cache key
+        body = ""
+        if request.method in ["POST", "PUT"]:
+            body = await self._get_request_body(request)
+
+        return f"cache:{api_key}:{request.method}:{request.url.path}:{request.query_params}:{body}"
+
+    async def get_cached_response(self, request: Request) -> dict[str, Any] | None:
         """Get cached response if available.
 
         Args:
@@ -62,7 +87,7 @@ class ResponseCache:
         if request.url.path in self.config.excluded_paths:
             return None
 
-        key = self._get_cache_key(request)
+        key = await self._get_cache_key(request)
         cached = self.redis.get(key)
 
         if cached:
@@ -70,7 +95,9 @@ class ResponseCache:
         return None
 
     async def cache_response(
-        self, request: Request, response_data: Dict[str, Any]
+        self,
+        request: Request,
+        response_data: dict[str, Any],
     ) -> None:
         """Cache response for future requests.
 
@@ -84,7 +111,7 @@ class ResponseCache:
         if request.url.path in self.config.excluded_paths:
             return
 
-        key = self._get_cache_key(request)
+        key = await self._get_cache_key(request)
         self.redis.setex(key, self.config.ttl, json.dumps(response_data))
 
     async def __call__(self, scope, receive, send):
@@ -115,13 +142,22 @@ class ResponseCache:
                                 (k.encode(), v.encode())
                                 for k, v in cached_data["headers"].items()
                             ],
-                        }
+                        },
                     )
                 elif message["type"] == "http.response.body":
                     message.update({"body": cached_data["content"].encode()})
                 await send(message)
 
             return await self.app(scope, receive, cached_send)
+
+        # Store the original request body
+        body = []
+
+        async def receive_with_store():
+            message = await receive()
+            if message["type"] == "http.request":
+                body.append(message.get("body", b""))
+            return message
 
         response_body = []
         response_headers = []
@@ -136,7 +172,7 @@ class ResponseCache:
                 response_body.append(message["body"])
             await send(message)
 
-        await self.app(scope, receive, capture_response)
+        await self.app(scope, receive_with_store, capture_response)
 
         # Only cache successful responses
         if response_status < 400:

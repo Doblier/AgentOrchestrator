@@ -37,7 +37,21 @@ services:
       - .:/app
     depends_on:
       - redis
-    command: ["python", "-m", "pytest", "--cov=agentorchestrator", "--cov-report=term"]
+    command: >
+      sh -c "python -m pytest 
+      --cov=agentorchestrator 
+      --cov-report=term 
+      -v 
+      -m 'security or not security' 
+      --asyncio-mode=strict"
+    environment:
+      - SECURITY_ENABLED=true
+      - RBAC_ENABLED=true
+      - AUDIT_LOGGING_ENABLED=true
+      - ENCRYPTION_ENABLED=true
+      - ENCRYPTION_KEY=test-key-for-encryption
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     profiles: ["test"]
 
   # UAT service - production-like environment for testing

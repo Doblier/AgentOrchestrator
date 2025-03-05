@@ -3,14 +3,14 @@ Base state management for AgentOrchestrator.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class StateManager(ABC):
     """Abstract base class for state management."""
 
     @abstractmethod
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Retrieve a value from the state store."""
         pass
 
@@ -34,9 +34,9 @@ class InMemoryStateManager(StateManager):
     """Simple in-memory state manager implementation."""
 
     def __init__(self):
-        self._store: Dict[str, Any] = {}
+        self._store: dict[str, Any] = {}
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Retrieve a value from the in-memory store."""
         return self._store.get(key)
 

@@ -6,11 +6,12 @@ It can be used to create concise summaries of articles, documents, or other long
 """
 
 import os
-from typing import Dict, Any, TypedDict, Optional
+from typing import Any, TypedDict
+
 from dotenv import load_dotenv
-from langgraph.func import entrypoint, task
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.func import entrypoint, task
 
 # Load environment variables
 load_dotenv()
@@ -27,12 +28,12 @@ class SummaryInput(TypedDict):
     """Input type for the summarization agent."""
 
     text: str
-    max_sentences: Optional[int]  # Default will be 3 if not provided
-    style: Optional[str]  # Default will be "concise" if not provided
+    max_sentences: int | None  # Default will be 3 if not provided
+    style: str | None  # Default will be "concise" if not provided
 
 
 @task
-def summarize_text(input_data: SummaryInput) -> Dict[str, Any]:
+def summarize_text(input_data: SummaryInput) -> dict[str, Any]:
     """
     Generate a summary of the input text with customizable parameters.
 
@@ -113,7 +114,7 @@ def summarize_text(input_data: SummaryInput) -> Dict[str, Any]:
 
 
 @entrypoint()
-def run_workflow(input_data: SummaryInput) -> Dict[str, Any]:
+def run_workflow(input_data: SummaryInput) -> dict[str, Any]:
     """
     Main entry point for the summarization workflow.
 

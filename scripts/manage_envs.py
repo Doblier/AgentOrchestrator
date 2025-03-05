@@ -25,12 +25,11 @@ Examples:
 import argparse
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
-import shutil
-
 
 ENV_CONFIGS = {
     "dev": {"venv_name": ".venv-dev", "install_args": ["--dev"], "extras": ["dev"]},
@@ -129,8 +128,7 @@ def update_env(env_name):
         if create == "y":
             create_env(env_name)
             return
-        else:
-            sys.exit(1)
+        sys.exit(1)
 
     # Determine install command based on extras
     extras = config["extras"]
@@ -216,7 +214,7 @@ def sync_all_environments():
     """Update all environments with latest dependencies."""
     print("Syncing all environments with latest dependencies...")
 
-    for env_name in ENV_CONFIGS.keys():
+    for env_name in ENV_CONFIGS:
         venv_path = Path(ENV_CONFIGS[env_name]["venv_name"])
         if venv_path.exists():
             print(f"\n=== Updating {env_name} environment ===")
@@ -260,7 +258,7 @@ def test_health_endpoint():
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert "status" in response.json()
-"""
+""",
             )
         print(f"Created integration test directory at {integration_test_dir}")
 
@@ -278,36 +276,48 @@ def main():
     # Create command
     create_parser = subparsers.add_parser("create", help="Create a new environment")
     create_parser.add_argument(
-        "env", choices=ENV_CONFIGS.keys(), help="Environment to create"
+        "env",
+        choices=ENV_CONFIGS.keys(),
+        help="Environment to create",
     )
     create_parser.add_argument(
-        "--force", action="store_true", help="Force recreation if exists"
+        "--force",
+        action="store_true",
+        help="Force recreation if exists",
     )
 
     # Update command
     update_parser = subparsers.add_parser(
-        "update", help="Update an existing environment"
+        "update",
+        help="Update an existing environment",
     )
     update_parser.add_argument(
-        "env", choices=ENV_CONFIGS.keys(), help="Environment to update"
+        "env",
+        choices=ENV_CONFIGS.keys(),
+        help="Environment to update",
     )
 
     # Lock command
     lock_parser = subparsers.add_parser(
-        "lock", help="Generate locked requirements for production"
+        "lock",
+        help="Generate locked requirements for production",
     )
     lock_parser.add_argument(
-        "--output", default="requirements.lock", help="Output file path"
+        "--output",
+        default="requirements.lock",
+        help="Output file path",
     )
 
     # Sync-all command
     subparsers.add_parser(
-        "sync-all", help="Update all environments and regenerate lock file"
+        "sync-all",
+        help="Update all environments and regenerate lock file",
     )
 
     # Setup-integration command
     subparsers.add_parser(
-        "setup-integration", help="Create integration test directory structure"
+        "setup-integration",
+        help="Create integration test directory structure",
     )
 
     args = parser.parse_args()

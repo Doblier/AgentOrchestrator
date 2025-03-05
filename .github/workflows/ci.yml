@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    # branches: [ main ]
+    branches: [ feature/crfi001 ]
   pull_request:
     branches: [ main ]
 
@@ -46,10 +47,17 @@ jobs:
       run: |
         uv pip install --system -e ".[test]"
         
-    - name: Lint with ruff
-      run: |
-        uv pip install --system ruff
-        ruff check .
+    - name: Lint with Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        version: latest
+        args: check --output-format=github
+        
+    - name: Format with Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        version: latest
+        args: format --check
         
     - name: Prepare test environment
       run: |
@@ -58,19 +66,24 @@ jobs:
         
     - name: Run tests
       run: |
-        # Now we can run all tests since we've properly mocked the Google API
-        python -m pytest --cov=agentorchestrator
+        # Run all tests with security tests enabled
+        python -m pytest --cov=agentorchestrator -v -m 'security or not security' --asyncio-mode=strict
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
         DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://test:test@localhost:5432/test' }}
         AUTH_DEFAULT_KEY: ${{ secrets.AUTH_DEFAULT_KEY || 'test-api-key' }}
         REDIS_HOST: ${{ secrets.REDIS_HOST || 'localhost' }}
         REDIS_PORT: ${{ secrets.REDIS_PORT || '6379' }}
+        SECURITY_ENABLED: true
+        RBAC_ENABLED: true
+        AUDIT_LOGGING_ENABLED: true
+        ENCRYPTION_ENABLED: true
+        ENCRYPTION_KEY: test-key-for-encryption
 
   uat:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/feature/crfi001' || startsWith(github.ref, 'refs/heads/release/'))
     
     steps:
     - uses: actions/checkout@v3
@@ -102,15 +115,22 @@ jobs:
         
     - name: Test API endpoints
       run: |
-        # Run integration tests to verify API endpoints
-        python -m pytest tests/test_main.py tests/integration
+        # Run integration tests to verify API endpoints with security enabled
+        python -m pytest tests/test_main.py tests/integration tests/security -v --asyncio-mode=strict
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'dummy-key-for-testing' }}
+        SECURITY_ENABLED: true
+        RBAC_ENABLED: true
+        AUDIT_LOGGING_ENABLED: true
+        ENCRYPTION_ENABLED: true
+        ENCRYPTION_KEY: test-key-for-encryption
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
 
   build:
     needs: [test, uat]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/crfi001'
     
     steps:
     - uses: actions/checkout@v3
@@ -156,7 +176,7 @@ jobs:
   deploy-prod:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/crfi001'
     environment: production
     
     steps:

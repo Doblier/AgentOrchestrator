@@ -4,10 +4,11 @@ Uses Redis to implement a sliding window rate limit.
 """
 
 import time
-from typing import Optional, Callable
-from fastapi import Request, HTTPException, status
-from redis import Redis
+from collections.abc import Callable
+
+from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
+from redis import Redis
 
 
 class RateLimitConfig(BaseModel):
@@ -25,7 +26,7 @@ class RateLimiter:
         self,
         app: Callable,
         redis_client: Redis,
-        config: Optional[RateLimitConfig] = None,
+        config: RateLimitConfig | None = None,
     ):
         """Initialize rate limiter.
 

@@ -9,14 +9,16 @@ Each agent must follow the standard pattern:
 """
 
 import importlib
-import os
-import sys
 import json
 import logging
-from typing import Dict, Any, Callable
+import os
+import sys
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
+
 from src.routes.validation import AgentValidationError
 
 # Configure logging
@@ -27,9 +29,10 @@ class AgentResponse(BaseModel):
     """Standard response model for all agents."""
 
     success: bool = Field(description="Whether the agent execution was successful")
-    data: Dict[str, Any] = Field(description="The output data from the agent workflow")
+    data: dict[str, Any] = Field(description="The output data from the agent workflow")
     error: str | None = Field(
-        default=None, description="Error message if the execution failed"
+        default=None,
+        description="Error message if the execution failed",
     )
 
     class Config:
@@ -42,11 +45,11 @@ class AgentResponse(BaseModel):
                     "country": "Example Country",
                 },
                 "error": None,
-            }
+            },
         }
 
 
-def discover_agents() -> Dict[str, Any]:
+def discover_agents() -> dict[str, Any]:
     """Discover all agent modules in src/routes directory."""
     agents = {}
     routes_dir = os.path.join("src", "routes")
@@ -82,7 +85,8 @@ def discover_agents() -> Dict[str, Any]:
                 logger.info(f"Successfully loaded agent: {agent_dir}")
             except Exception as e:
                 logger.error(
-                    f"Error loading agent {agent_dir}: {str(e)}", exc_info=True
+                    f"Error loading agent {agent_dir}: {str(e)}",
+                    exc_info=True,
                 )
 
     if agents:
@@ -100,7 +104,7 @@ def get_agent_description(module: Any) -> str:
     return "No description available"
 
 
-def get_agent_examples(agent_name: str) -> Dict[str, Any]:
+def get_agent_examples(agent_name: str) -> dict[str, Any]:
     """Get example inputs for an agent."""
     examples = {
         "fun_fact_city": {
@@ -132,7 +136,7 @@ def create_execute_function(name: str, module: Any) -> Callable:
             ...,
             description=get_agent_description(module),
             examples=[get_agent_examples(name)],
-        )
+        ),
     ):
         """Execute the agent workflow.
 
@@ -188,9 +192,9 @@ def create_dynamic_router() -> APIRouter:
             status.HTTP_500_INTERNAL_SERVER_ERROR: {
                 "description": "Internal server error",
                 "content": {
-                    "application/json": {"example": {"detail": "Error message"}}
+                    "application/json": {"example": {"detail": "Error message"}},
                 },
-            }
+            },
         },
     )
 
@@ -211,7 +215,8 @@ def create_dynamic_router() -> APIRouter:
             logger.info(f"Registered route: /agent/{agent_name} [GET]")
         except Exception as e:
             logger.error(
-                f"Failed to register route for {agent_name}: {str(e)}", exc_info=True
+                f"Failed to register route for {agent_name}: {str(e)}",
+                exc_info=True,
             )
 
     return router
