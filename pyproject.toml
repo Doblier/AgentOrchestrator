@@ -17,6 +17,7 @@ dependencies = [
     "langchain-google-genai>=0.0.11",
     "langchain-core>=0.1.31",
     "loguru>=0.7.3",
+    "cryptography>=42.0.0",
 ]
 requires-python = ">=3.12"
 
