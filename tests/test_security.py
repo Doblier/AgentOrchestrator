@@ -210,13 +210,15 @@ class TestSecurityFramework:
     ) -> None:
         """Test that audit logging captures events."""
         # Mock Redis to return key data
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "test-key",
-            "name": "test",
-            "roles": ["admin"],
-            "permissions": ["read"],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "test-key",
+                "name": "test",
+                "roles": ["admin"],
+                "permissions": ["read"],
+                "active": True,
+            }
+        )
 
         # Mock RBAC manager to grant permission
         mock_rbac_manager.has_permission.return_value = True
@@ -229,23 +231,31 @@ class TestSecurityFramework:
         mock_pipe.execute = AsyncMock()
 
         # Patch RBAC manager and audit logger in middleware
-        with patch("agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager), \
-             patch("agentorchestrator.api.middleware.AuditLogger", return_value=mock_audit_logger):
+        with (
+            patch(
+                "agentorchestrator.api.middleware.RBACManager",
+                return_value=mock_rbac_manager,
+            ),
+            patch(
+                "agentorchestrator.api.middleware.AuditLogger",
+                return_value=mock_audit_logger,
+            ),
+        ):
             response = client.get(
                 "/protected",
                 headers={"X-API-Key": "test-key"},
             )
             assert response.status_code == 200
-            
+
             # Get the actual call arguments
             call_args = mock_audit_logger.log_event.call_args[1]
-            
+
             # Check everything except the accept-encoding header
             assert call_args["event_type"] == "api_request"
             assert call_args["user_id"] == "test-key"
             assert call_args["details"]["method"] == "GET"
             assert call_args["details"]["path"] == "/protected"
-            
+
             headers = call_args["details"]["headers"]
             assert headers["host"] == "testserver"
             assert headers["accept"] == "*/*"
