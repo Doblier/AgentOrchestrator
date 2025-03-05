@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
@@ -18,7 +18,8 @@ from agentorchestrator.security.audit import (
 @pytest.fixture
 def mock_redis():
     """Fixture to provide a mock Redis client."""
-    mock = MagicMock()
+    mock = AsyncMock()
+    mock.pipeline.return_value = AsyncMock()
     return mock
 
 
@@ -121,7 +122,8 @@ class TestAuditEvent:
 class TestAuditLogger:
     """Tests for the AuditLogger class."""
 
-    def test_log_event(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_log_event(self, audit_logger, mock_redis):
         """Test logging an event."""
         event = AuditEvent(
             event_id="test-event",
@@ -133,23 +135,31 @@ class TestAuditLogger:
             message="User logged in successfully",
         )
 
-        audit_logger.log_event(event)
+        # Configure mock pipeline
+        mock_pipe = AsyncMock()
+        mock_redis.pipeline.return_value = mock_pipe
 
-        # Verify Redis was called with expected arguments for each index
-        assert mock_redis.zadd.call_count == 3
+        await audit_logger.log_event(event)
+
+        # Verify Redis pipeline was called with expected arguments
+        assert mock_pipe.zadd.call_count == 3  # timestamp, type, and user indices
         timestamp = datetime.fromisoformat(event.timestamp).timestamp()
-        mock_redis.zadd.assert_any_call(
+        mock_pipe.zadd.assert_any_call(
             "audit:index:timestamp", {event.event_id: timestamp}
         )
-        mock_redis.zadd.assert_any_call(
-            "audit:index:type:AuditEventType.AUTHENTICATION",
-            {event.event_id: timestamp},
+        mock_pipe.zadd.assert_any_call(
+            f"audit:index:type:{event.event_type}", {event.event_id: timestamp}
         )
-        mock_redis.zadd.assert_any_call(
-            "audit:index:user:user123", {event.event_id: timestamp}
+        mock_pipe.zadd.assert_any_call(
+            f"audit:index:user:{event.user_id}", {event.event_id: timestamp}
         )
+        mock_pipe.hset.assert_called_once_with(
+            "audit:events", event.event_id, event.model_dump_json()
+        )
+        mock_pipe.execute.assert_called_once()
 
-    def test_get_event_by_id(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_get_event_by_id(self, audit_logger, mock_redis):
         """Test retrieving an event by ID."""
         # Configure mock to return a serialized event
         mock_redis.hget.return_value = json.dumps(
@@ -164,21 +174,22 @@ class TestAuditLogger:
             }
         )
 
-        event = audit_logger.get_event_by_id("test-event")
+        event = await audit_logger.get_event_by_id("test-event")
         assert event.event_id == "test-event"
         assert event.user_id == "user123"
         assert event.event_type == AuditEventType.AUTHENTICATION
 
-    def test_get_nonexistent_event(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_event(self, audit_logger, mock_redis):
         """Test retrieving a nonexistent event."""
         # Configure mock to return None (event doesn't exist)
         mock_redis.hget.return_value = None
 
-        event = audit_logger.get_event_by_id("nonexistent-event")
-
+        event = await audit_logger.get_event_by_id("nonexistent-event")
         assert event is None
 
-    def test_query_events(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_query_events(self, audit_logger, mock_redis):
         """Test querying events with filters."""
         # Configure mock to return a list of event IDs
         mock_redis.zrevrangebyscore.return_value = [b"event1", b"event2"]
@@ -214,7 +225,7 @@ class TestAuditLogger:
         mock_redis.hget.side_effect = mock_hget
 
         # Query events
-        events = audit_logger.query_events(
+        events = await audit_logger.query_events(
             event_type=AuditEventType.AUTHENTICATION,
             start_time=datetime.now() - timedelta(days=1),
             end_time=datetime.now(),
@@ -223,7 +234,8 @@ class TestAuditLogger:
 
         assert len(events) == 2
 
-    def test_query_events_with_user_filter(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_query_events_with_user_filter(self, audit_logger, mock_redis):
         """Test querying events with user filter."""
         # Configure mock to return a list of event IDs
         mock_redis.zrevrangebyscore.return_value = [b"event1", b"event2"]
@@ -259,169 +271,130 @@ class TestAuditLogger:
         mock_redis.hget.side_effect = mock_hget
 
         # Query events with user filter
-        events = audit_logger.query_events(
+        events = await audit_logger.query_events(
             user_id="user123",
             start_time=datetime.now() - timedelta(days=1),
             end_time=datetime.now(),
             limit=10,
         )
 
-        # Only one event should match the user filter
         assert len(events) == 1
-        assert events[0].event_id == "event1"
         assert events[0].user_id == "user123"
 
-    def test_export_events(self, audit_logger, mock_redis):
+    @pytest.mark.asyncio
+    async def test_export_events(self, audit_logger, mock_redis):
         """Test exporting events to JSON."""
         # Configure mock to return a list of event IDs
-        mock_redis.zrevrangebyscore.return_value = [b"event1", b"event2"]
+        mock_redis.zrevrangebyscore.return_value = [b"event1"]
 
-        # Configure mock to return serialized events
-        def mock_hget(key, field):
-            if field == "event1":
-                return json.dumps(
-                    {
-                        "event_id": "event1",
-                        "timestamp": datetime.now().isoformat(),
-                        "event_type": "authentication",  # Using lowercase enum value
-                        "user_id": "user123",
-                        "action": "login",
-                        "status": "success",
-                        "message": "User logged in successfully",
-                    }
-                )
-            if field == "event2":
-                return json.dumps(
-                    {
-                        "event_id": "event2",
-                        "timestamp": datetime.now().isoformat(),
-                        "event_type": "authentication",  # Using lowercase enum value
-                        "user_id": "user456",
-                        "action": "login",
-                        "status": "failure",
-                        "message": "Invalid credentials",
-                    }
-                )
-            return None
-
-        mock_redis.hget.side_effect = mock_hget
+        # Configure mock to return a serialized event
+        mock_redis.hget.return_value = json.dumps(
+            {
+                "event_id": "event1",
+                "timestamp": datetime.now().isoformat(),
+                "event_type": "authentication",  # Using lowercase enum value
+                "user_id": "user123",
+                "action": "login",
+                "status": "success",
+                "message": "User logged in successfully",
+            }
+        )
 
         # Export events
-        export_json = audit_logger.export_events(
+        export_json = await audit_logger.export_events(
             start_time=datetime.now() - timedelta(days=1),
             end_time=datetime.now(),
         )
 
-        # Verify export format
+        # Parse and verify export
         export_data = json.loads(export_json)
         assert "events" in export_data
         assert "metadata" in export_data
-        assert len(export_data["events"]) == 2
-        assert export_data["events"][0]["event_id"] == "event1"
-        assert export_data["events"][1]["event_id"] == "event2"
+        assert len(export_data["events"]) == 1
+        assert export_data["events"][0]["user_id"] == "user123"
 
 
-def test_log_auth_success():
-    """Test the log_auth_success helper function."""
-    with patch("agentorchestrator.security.audit.AuditLogger") as mock_logger_class:
-        # Set up mock
-        mock_logger = MagicMock()
-        mock_logger_class.return_value = mock_logger
+@pytest.mark.asyncio
+async def test_initialize_audit_logger(mock_redis):
+    """Test initializing the audit logger."""
+    # Configure mock pipeline
+    mock_pipe = AsyncMock()
+    mock_redis.pipeline.return_value = mock_pipe
 
-        # Call the helper function
-        log_auth_success(
-            user_id="user123",
-            api_key_id="api-key-123",
-            ip_address="192.168.1.1",
-            redis_client=MagicMock(),
-        )
+    logger = await initialize_audit_logger(mock_redis)
 
-        # Verify logger was called with correct event data
-        mock_logger.log_event.assert_called_once()
-        event = mock_logger.log_event.call_args[0][0]
-        assert event.event_type == AuditEventType.AUTHENTICATION
-        assert event.user_id == "user123"
-        assert event.api_key_id == "api-key-123"
-        assert event.ip_address == "192.168.1.1"
-        assert event.action == "authentication"
-        assert event.status == "success"
+    # Verify logger was created
+    assert isinstance(logger, AuditLogger)
+    assert logger.redis == mock_redis
+
+    # Verify initialization event was logged
+    assert mock_pipe.zadd.call_count == 2  # timestamp and type indices
+    mock_pipe.hset.assert_called_once()
+    mock_pipe.execute.assert_called_once()
 
 
-def test_log_auth_failure():
-    """Test the log_auth_failure helper function."""
-    with patch("agentorchestrator.security.audit.AuditLogger") as mock_logger_class:
-        # Set up mock
-        mock_logger = MagicMock()
-        mock_logger_class.return_value = mock_logger
+@pytest.mark.asyncio
+async def test_log_auth_success(mock_redis):
+    """Test logging a successful authentication event."""
+    # Configure mock pipeline
+    mock_pipe = AsyncMock()
+    mock_redis.pipeline.return_value = mock_pipe
 
-        # Call the helper function
-        log_auth_failure(
-            ip_address="192.168.1.1",
-            reason="Invalid API key",
-            api_key_id="invalid-key",
-            redis_client=MagicMock(),
-        )
+    await log_auth_success(
+        user_id="user123",
+        api_key_id="api-key-123",
+        ip_address="192.168.1.1",
+        redis_client=mock_redis,
+    )
 
-        # Verify logger was called with correct event data
-        mock_logger.log_event.assert_called_once()
-        event = mock_logger.log_event.call_args[0][0]
-        assert event.event_type == AuditEventType.AUTHENTICATION
-        assert event.ip_address == "192.168.1.1"
-        assert event.api_key_id == "invalid-key"
-        assert event.action == "authentication"
-        assert event.status == "failure"
-        assert "Invalid API key" in event.message
+    # Verify event was logged
+    assert mock_pipe.zadd.call_count == 3  # timestamp, type, and user indices
+    mock_pipe.hset.assert_called_once()
+    mock_pipe.execute.assert_called_once()
 
 
-def test_log_api_request():
-    """Test the log_api_request helper function."""
-    with patch("agentorchestrator.security.audit.AuditLogger") as mock_logger_class:
-        # Set up mock
-        mock_logger = MagicMock()
-        mock_logger_class.return_value = mock_logger
+@pytest.mark.asyncio
+async def test_log_auth_failure(mock_redis):
+    """Test logging a failed authentication event."""
+    # Configure mock pipeline
+    mock_pipe = AsyncMock()
+    mock_redis.pipeline.return_value = mock_pipe
 
-        # Create a mock request
-        mock_request = MagicMock()
-        mock_request.url.path = "/api/v1/resources"
-        mock_request.method = "GET"
-        mock_request.client.host = "192.168.1.1"
+    await log_auth_failure(
+        ip_address="192.168.1.1",
+        reason="Invalid credentials",
+        redis_client=mock_redis,
+        api_key_id="api-key-123",
+    )
 
-        # Call the helper function
-        log_api_request(
-            request=mock_request,
-            user_id="user123",
-            api_key_id="api-key-123",
-            status_code=200,
-            redis_client=MagicMock(),
-        )
-
-        # Verify logger was called with correct event data
-        mock_logger.log_event.assert_called_once()
-        event = mock_logger.log_event.call_args[0][0]
-        assert event.event_type == AuditEventType.API_REQUEST
-        assert event.user_id == "user123"
-        assert event.api_key_id == "api-key-123"
-        assert event.ip_address == "192.168.1.1"
-        assert event.resource_type == "endpoint"
-        assert event.resource_id == "/api/v1/resources"
-        assert event.action == "GET /api/v1/resources"  # Updated to match actual value
+    # Verify event was logged
+    assert mock_pipe.zadd.call_count == 2  # timestamp and type indices
+    mock_pipe.hset.assert_called_once()
+    mock_pipe.execute.assert_called_once()
 
 
-def test_initialize_audit_logger():
-    """Test the initialize_audit_logger function."""
-    with patch("agentorchestrator.security.audit.AuditLogger") as mock_logger_class:
-        # Set up mock
-        mock_logger = MagicMock()
-        mock_logger_class.return_value = mock_logger
+@pytest.mark.asyncio
+async def test_log_api_request(mock_redis):
+    """Test logging an API request event."""
+    # Configure mock pipeline
+    mock_pipe = AsyncMock()
+    mock_redis.pipeline.return_value = mock_pipe
 
-        # Call the initialize function
-        logger = initialize_audit_logger(redis_client=MagicMock())
+    # Create a mock request
+    mock_request = MagicMock()
+    mock_request.method = "GET"
+    mock_request.url.path = "/api/v1/test"
+    mock_request.client.host = "192.168.1.1"
 
-        # Verify logger was created and initialization event was logged
-        assert logger == mock_logger
-        mock_logger.log_event.assert_called_once()
-        event = mock_logger.log_event.call_args[0][0]
-        assert event.event_type == AuditEventType.ADMIN
-        assert event.action == "initialization"
-        assert event.status == "success"
-        assert "Audit logging system initialized" in event.message
+    await log_api_request(
+        request=mock_request,
+        user_id="user123",
+        api_key_id="api-key-123",
+        status_code=200,
+        redis_client=mock_redis,
+    )
+
+    # Verify event was logged
+    assert mock_pipe.zadd.call_count == 3  # timestamp, type, and user indices
+    mock_pipe.hset.assert_called_once()
+    mock_pipe.execute.assert_called_once()

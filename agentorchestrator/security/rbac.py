@@ -9,6 +9,9 @@ import json
 import logging
 import uuid
 from typing import Any
+import time
+from datetime import datetime, timezone, timedelta
+import secrets
 
 from fastapi import HTTPException, Request, status
 from redis import Redis
@@ -101,6 +104,7 @@ class RBACManager:
         self._role_cache: dict[str, Role] = {}
         self._roles_key = "rbac:roles"
         self._api_keys_key = "rbac:api_keys"
+        self._api_key_names_key = "rbac:api_key_names"
 
     async def create_role(
         self,
@@ -147,10 +151,11 @@ class RBACManager:
         }
 
         try:
-            await self.redis.set(role_key, json.dumps(role_data))
-
-            # Update roles set
-            await self.redis.sadd("roles", name)
+            # Use Redis pipeline for atomic operations
+            pipe = await self.redis.pipeline()
+            await pipe.set(role_key, json.dumps(role_data))
+            await pipe.sadd("roles", name)
+            await pipe.execute()
 
             # Cache role
             self._role_cache[name] = role
@@ -203,39 +208,6 @@ class RBACManager:
             logger.error(f"Error retrieving role {role_name}: {e}")
             return None
 
-    async def get_all_roles(self) -> list[Role]:
-        """Get all roles.
-
-        Returns:
-            List of all roles
-        """
-        roles = []
-        role_data = await self.redis.hgetall(self._roles_key)
-
-        for role_json in role_data.values():
-            try:
-                role = Role.model_validate_json(role_json)
-                roles.append(role)
-                self._role_cache[role.name] = role
-            except Exception:
-                continue
-
-        return roles
-
-    async def delete_role(self, role_name: str) -> bool:
-        """Delete a role.
-
-        Args:
-            role_name: Name of the role to delete
-
-        Returns:
-            True if the role was deleted, False otherwise
-        """
-        result = await self.redis.hdel(self._roles_key, role_name)
-        if role_name in self._role_cache:
-            del self._role_cache[role_name]
-        return result > 0
-
     async def get_effective_permissions(self, role_names: list[str]) -> set[str]:
         """Get all effective permissions for a list of roles, including inherited permissions.
 
@@ -254,19 +226,17 @@ class RBACManager:
 
             processed_roles.add(role_name)
             role = await self.get_role(role_name)
-
             if not role:
                 return
 
-            # Add this role's permissions
-            for perm in role.permissions:
-                effective_permissions.add(perm)
+            # Add direct permissions
+            effective_permissions.update(role.permissions)
 
-            # Process parent roles recursively
-            for parent in role.parent_roles:
-                await process_role(parent)
+            # Process parent roles
+            for parent_role in role.parent_roles:
+                await process_role(parent_role)
 
-        # Process each role in the list
+        # Process all roles
         for role_name in role_names:
             await process_role(role_name)
 
@@ -275,120 +245,170 @@ class RBACManager:
     async def create_api_key(
         self,
         name: str,
-        roles: list[str],
-        user_id: str | None = None,
-        rate_limit: int = 60,
-        expiration: int | None = None,
-        ip_whitelist: list[str] = None,
-        organization_id: str | None = None,
-        metadata: dict[str, Any] = None,
-    ) -> EnhancedApiKey | None:
+        roles: list[str] | None = None,
+        description: str | None = None,
+        rate_limit: int = 100,
+        expires_in: int | None = None,
+    ) -> EnhancedApiKey:
         """Create a new API key.
 
         Args:
-            name: API key name
-            roles: List of roles for the key
-            user_id: Associated user ID
-            rate_limit: Rate limit for API requests
-            expiration: Expiration timestamp
-            ip_whitelist: List of allowed IP addresses
-            organization_id: Associated organization ID
-            metadata: Additional metadata
+            name: Name of the API key
+            roles: List of role names to assign
+            description: Optional description
+            rate_limit: Rate limit per minute
+            expires_in: Optional expiration time in seconds
 
         Returns:
-            Created API key if successful, None otherwise
+            The created API key
+
+        Raises:
+            ValueError: If the API key name already exists
         """
-        try:
-            # Generate a unique key
-            key = f"aorbit_{uuid.uuid4().hex[:32]}"
+        roles = roles or []
+        description = description or ""
 
-            # Create API key object
-            api_key = EnhancedApiKey(
-                key=key,
-                name=name,
-                roles=roles,
-                user_id=user_id,
-                rate_limit=rate_limit,
-                expiration=expiration,
-                ip_whitelist=ip_whitelist,
-                organization_id=organization_id,
-                metadata=metadata,
-            )
+        # Check if API key name already exists
+        exists = await self.redis.sismember(self._api_key_names_key, name)
+        if exists:
+            raise ValueError(f"API key name '{name}' already exists")
 
-            # Save to Redis
-            api_key_json = json.dumps(api_key.__dict__)
-            await self.redis.hset(self._api_keys_key, key, api_key_json)
+        # Create API key object
+        expiration = None
+        if expires_in:
+            expiration = int((datetime.now(timezone.utc) + timedelta(seconds=expires_in)).timestamp())
 
-            return api_key
-        except Exception as e:
-            logger.error(f"Error creating API key: {e}")
-            return None
+        api_key = EnhancedApiKey(
+            key=f"ao-{secrets.token_urlsafe(32)}",
+            name=name,
+            roles=roles,
+            description=description,
+            rate_limit=rate_limit,
+            expiration=expiration,
+        )
+
+        # Convert to JSON for storage
+        api_key_dict = {
+            "key": api_key.key,
+            "name": api_key.name,
+            "description": api_key.description,
+            "roles": api_key.roles,
+            "rate_limit": api_key.rate_limit,
+            "expiration": api_key.expiration,
+            "ip_whitelist": api_key.ip_whitelist,
+            "user_id": api_key.user_id,
+            "organization_id": api_key.organization_id,
+            "metadata": api_key.metadata,
+            "is_active": api_key.is_active,
+        }
+        api_key_json = json.dumps(api_key_dict)
+
+        # Use pipeline for atomic operations
+        pipe = await self.redis.pipeline()
+        await pipe.hset(self._api_keys_key, api_key.key, api_key_json)
+        await pipe.sadd(self._api_key_names_key, name)
+        await pipe.execute()
+
+        return api_key
 
     async def get_api_key(self, key: str) -> EnhancedApiKey | None:
-        """Get an API key by its value.
+        """Get API key data.
 
         Args:
-            key: API key to get
+            key: API key to retrieve
 
         Returns:
-            EnhancedApiKey if found, None otherwise
+            API key data if found, None otherwise
         """
         try:
-            api_key_json = await self.redis.hget(self._api_keys_key, key)
-            if not api_key_json:
+            # Get from Redis
+            key_data = await self.redis.hget(self._api_keys_key, key)
+            if not key_data:
                 return None
 
-            api_key_data = json.loads(api_key_json)
-            return EnhancedApiKey(**api_key_data)
-        except Exception:
+            # Parse JSON
+            data = json.loads(key_data)
+            return EnhancedApiKey(
+                key=data["key"],
+                name=data["name"],
+                roles=data["roles"],
+                user_id=data.get("user_id"),
+                rate_limit=data.get("rate_limit", 60),
+                expiration=data.get("expiration"),
+                ip_whitelist=data.get("ip_whitelist", []),
+                organization_id=data.get("organization_id"),
+                metadata=data.get("metadata", {}),
+                is_active=data.get("is_active", True),
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving API key: {e}")
             return None
-
-    async def delete_api_key(self, key: str) -> bool:
-        """Delete an API key.
-
-        Args:
-            key: API key to delete
-
-        Returns:
-            True if deleted, False otherwise
-        """
-        result = await self.redis.hdel(self._api_keys_key, key)
-        return result > 0
 
     async def has_permission(
         self,
         api_key: str,
-        required_permission: str,
+        permission: str,
         resource_type: str | None = None,
         resource_id: str | None = None,
     ) -> bool:
         """Check if an API key has a specific permission.
 
         Args:
-            api_key: API key value
-            required_permission: Permission to check
+            api_key: API key to check
+            permission: Permission to check
             resource_type: Optional resource type
             resource_id: Optional resource ID
 
         Returns:
-            True if the API key has the permission, False otherwise
+            True if the API key has the permission
         """
-        key_data = await self.get_api_key(api_key)
-        if not key_data or not key_data.is_active:
+        try:
+            # Get API key data
+            api_key_data = await self.redis.hget(self._api_keys_key, api_key)
+            if not api_key_data:
+                return False
+
+            # Parse API key data
+            api_key_info = json.loads(api_key_data)
+            if not api_key_info.get("is_active", True):
+                return False
+
+            # Check expiration
+            expiration = api_key_info.get("expiration")
+            if expiration and time.time() > expiration:
+                return False
+
+            # Get roles
+            roles = api_key_info.get("roles", [])
+            if not roles:
+                return False
+
+            # Check each role's permissions
+            for role_name in roles:
+                role = await self.get_role(role_name)
+                if not role:
+                    continue
+
+                # Check direct permissions
+                if permission in role.permissions:
+                    return True
+
+                # Check resource-specific permissions
+                if resource_type and resource_id:
+                    resource_permission = f"{permission}:{resource_type}:{resource_id}"
+                    if resource_permission in role.permissions:
+                        return True
+
+                # Check parent roles
+                for parent_role_name in role.parent_roles:
+                    parent_role = await self.get_role(parent_role_name)
+                    if parent_role and permission in parent_role.permissions:
+                        return True
+
             return False
-
-        # Get all permissions from all roles
-        permissions = await self.get_effective_permissions(key_data.roles)
-
-        # Admin permission grants everything
-        if "admin:system" in permissions:
-            return True
-
-        # Check if the required permission is in the set
-        if required_permission in permissions:
-            return True
-
-        return False
+        except Exception as e:
+            logger.error(f"Error checking permission: {e}")
+            return False
 
 
 # Default roles definition
@@ -424,35 +444,18 @@ DEFAULT_ROLES = [
 ]
 
 
-async def initialize_rbac(redis_client) -> RBACManager:
-    """Initialize RBAC with default roles.
+async def initialize_rbac(redis_client: Redis) -> RBACManager:
+    """Initialize the RBAC manager.
 
     Args:
-        redis_client: Redis client
+        redis_client: Redis client instance
 
     Returns:
-        Initialized RBACManager
+        Initialized RBAC manager
     """
-    logger.info("Initializing RBAC system")
-    rbac_manager = RBACManager(redis_client)
-
-    # Create default roles if they don't exist
-    for role_def in DEFAULT_ROLES:
-        role_name = role_def["name"]
-        if not await rbac_manager.get_role(role_name):
-            logger.info(f"Creating default role: {role_name}")
-            await rbac_manager.create_role(
-                name=role_name,
-                description=role_def["description"],
-                permissions=role_def["permissions"],
-                resources=role_def["resources"],
-                parent_roles=role_def["parent_roles"],
-            )
-
-    return rbac_manager
+    return RBACManager(redis_client)
 
 
-# FastAPI security dependency
 async def check_permission(
     request: Request,
     permission: str,
@@ -462,32 +465,25 @@ async def check_permission(
     """Check if the current request has the required permission.
 
     Args:
-        request: FastAPI request
+        request: Current request
         permission: Required permission
         resource_type: Optional resource type
         resource_id: Optional resource ID
 
     Returns:
-        True if authorized, raises HTTPException otherwise
+        True if authorized, False otherwise
     """
-    if not hasattr(request.state, "api_key_data"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
+    # Get RBAC manager from request state
+    if not hasattr(request.state, "rbac_manager"):
+        return False
 
-    api_key_data = request.state.api_key_data
-    rbac_manager = request.app.state.rbac_manager
+    # Get API key from request state
+    if not hasattr(request.state, "api_key"):
+        return False
 
-    if not await rbac_manager.has_permission(
-        api_key_data.key,
+    return await request.state.rbac_manager.has_permission(
+        request.state.api_key,
         permission,
         resource_type,
         resource_id,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Permission denied: {permission} required",
-        )
-
-    return True
+    )

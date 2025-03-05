@@ -138,18 +138,18 @@ class AuditLogger:
         # Convert timestamp to Unix timestamp for Redis
         timestamp = datetime.fromisoformat(event.timestamp).timestamp()
 
-        # Add event to Redis with multiple indexes
-        await self.redis.zadd("audit:index:timestamp", {event.event_id: timestamp})
-        await self.redis.zadd(
+        # Use Redis pipeline for atomic operations
+        pipe = await self.redis.pipeline()
+        await pipe.zadd("audit:index:timestamp", {event.event_id: timestamp})
+        await pipe.zadd(
             f"audit:index:type:{event.event_type}", {event.event_id: timestamp}
         )
         if event.user_id:
-            await self.redis.zadd(
+            await pipe.zadd(
                 f"audit:index:user:{event.user_id}", {event.event_id: timestamp}
             )
-
-        # Store event data
-        await self.redis.hset("audit:events", event.event_id, event.model_dump_json())
+        await pipe.hset("audit:events", event.event_id, event.model_dump_json())
+        await pipe.execute()
 
         logger.info(f"Audit event logged: {event.event_type} {event.event_id}")
         return event.event_id
@@ -162,7 +162,7 @@ class AuditLogger:
             return AuditEvent.from_dict(event_dict)
         return None
 
-    def query_events(
+    async def query_events(
         self,
         event_type: Optional[AuditEventType] = None,
         user_id: Optional[str] = None,
@@ -184,14 +184,14 @@ class AuditLogger:
         end_ts = end_time.timestamp() if end_time else float("inf")
 
         # Get event IDs from the index
-        event_ids = self.redis.zrevrangebyscore(
+        event_ids = await self.redis.zrevrangebyscore(
             index_key, end_ts, start_ts, start=0, num=limit
         )
 
         # Retrieve events
         events = []
         for event_id in event_ids:
-            event_data = self.redis.hget("audit:events", event_id.decode())
+            event_data = await self.redis.hget("audit:events", event_id.decode())
             if event_data:
                 event_dict = json.loads(event_data)
                 event = AuditEvent.from_dict(event_dict)
@@ -202,13 +202,13 @@ class AuditLogger:
 
         return events
 
-    def export_events(
+    async def export_events(
         self,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
     ) -> str:
         """Export audit events to JSON."""
-        events = self.query_events(start_time=start_time, end_time=end_time)
+        events = await self.query_events(start_time=start_time, end_time=end_time)
         metadata = {
             "export_time": datetime.now(timezone.utc).isoformat(),
             "total_events": len(events),
@@ -222,7 +222,7 @@ class AuditLogger:
         )
 
 
-def initialize_audit_logger(redis_client: Redis) -> AuditLogger:
+async def initialize_audit_logger(redis_client: Redis) -> AuditLogger:
     """Initialize the audit logger.
 
     Args:
@@ -238,89 +238,91 @@ def initialize_audit_logger(redis_client: Redis) -> AuditLogger:
         status="success",
         message="Audit logging system initialized",
     )
-    logger.log_event(event)
+    await logger.log_event(event)
     return logger
 
 
 # Helper functions for common audit events
-def log_auth_success(
+async def log_auth_success(
     user_id: str,
     api_key_id: str,
     ip_address: str,
     redis_client: Redis,
-) -> str:
+) -> None:
     """Log a successful authentication event.
 
     Args:
-        user_id: ID of authenticated user
-        api_key_id: ID of API key used
-        ip_address: Source IP address
+        user_id: User ID
+        api_key_id: API key ID
+        ip_address: IP address
         redis_client: Redis client
-
-    Returns:
-        Event ID
     """
-    logger = AuditLogger(redis_client)
     event = AuditEvent(
-        event_type=AuditEventType.AUTHENTICATION,
+        event_type=AuditEventType.AUTH_SUCCESS,
         user_id=user_id,
         api_key_id=api_key_id,
         ip_address=ip_address,
         action="authentication",
         status="success",
-        message="User logged in successfully",
+        message="User authenticated successfully",
     )
-    return logger.log_event(event)
+    logger = AuditLogger(redis_client)
+    await logger.log_event(event)
 
 
-def log_auth_failure(
+async def log_auth_failure(
     ip_address: str,
     reason: str,
     redis_client: Redis,
     api_key_id: str | None = None,
-) -> str:
+) -> None:
     """Log a failed authentication event.
 
     Args:
-        ip_address: Source IP address
+        ip_address: IP address
         reason: Failure reason
         redis_client: Redis client
-        api_key_id: ID of API key used (if any)
-
-    Returns:
-        Event ID
+        api_key_id: Optional API key ID
     """
-    logger = AuditLogger(redis_client)
     event = AuditEvent(
-        event_type=AuditEventType.AUTHENTICATION,
+        event_type=AuditEventType.AUTH_FAILURE,
         ip_address=ip_address,
         api_key_id=api_key_id,
         action="authentication",
         status="failure",
         message=f"Authentication failed: {reason}",
     )
-    return logger.log_event(event)
+    logger = AuditLogger(redis_client)
+    await logger.log_event(event)
 
 
-def log_api_request(
+async def log_api_request(
     request: Any,
-    user_id: str,
-    api_key_id: str,
-    status_code: int,
-    redis_client: Redis,
-) -> str:
-    """Log an API request."""
+    user_id: str | None = None,
+    api_key_id: str | None = None,
+    status_code: int = 200,
+    redis_client: Redis | None = None,
+) -> None:
+    """Log an API request event.
+
+    Args:
+        request: Request object
+        user_id: Optional user ID
+        api_key_id: Optional API key ID
+        status_code: Response status code
+        redis_client: Optional Redis client
+    """
+    if not redis_client:
+        return
+
     event = AuditEvent(
         event_type=AuditEventType.API_REQUEST,
         user_id=user_id,
         api_key_id=api_key_id,
-        ip_address=request.client.host,
-        resource_type="endpoint",
-        resource_id=request.url.path,
+        ip_address=request.client.host if request.client else None,
         action=f"{request.method} {request.url.path}",
         status="success" if status_code < 400 else "error",
         message=f"API request completed with status {status_code}",
     )
-
     logger = AuditLogger(redis_client)
-    return logger.log_event(event)
+    await logger.log_event(event)
