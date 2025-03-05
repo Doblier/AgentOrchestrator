@@ -53,9 +53,13 @@ async def mock_redis() -> AsyncMock:
         "ip_whitelist": ["127.0.0.1"],
     }
 
+    # Generate a proper Fernet key for testing
+    from cryptography.fernet import Fernet
+    test_key = Fernet.generate_key()
+
     # Mock Redis methods
     mock.hget.return_value = json.dumps(api_key_data).encode()
-    mock.get.return_value = b"test-encryption-key"
+    mock.get.return_value = test_key
 
     # Mock pipeline for audit logging
     mock_pipe = AsyncMock()
@@ -72,10 +76,12 @@ async def security_integration(
     mock_app: FastAPI, mock_redis: AsyncMock
 ) -> SecurityIntegration:
     """Create a security integration instance for testing."""
-    # Generate a proper Fernet key for testing
+    import os
     from cryptography.fernet import Fernet
 
-    test_key = Fernet.generate_key().decode()
+    # Generate and set encryption key in environment
+    test_key = Fernet.generate_key()
+    os.environ["ENCRYPTION_KEY"] = test_key.decode()
 
     integration = SecurityIntegration(
         app=mock_app,
@@ -86,7 +92,6 @@ async def security_integration(
         enable_encryption=True,
         api_key_header_name="X-API-Key",
         ip_whitelist=["127.0.0.1"],
-        encryption_key=test_key,
         rbac_config={"default_role": "user"},
     )
     await integration.initialize()
