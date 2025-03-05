@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from fastapi import FastAPI, Request, Depends
 from fastapi.testclient import TestClient
 
@@ -13,8 +12,6 @@ from agentorchestrator.security.rbac import (
     RBACManager,
     check_permission,
     initialize_rbac,
-    Role,
-    EnhancedApiKey,
 )
 
 

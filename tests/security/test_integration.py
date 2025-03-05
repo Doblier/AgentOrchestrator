@@ -9,9 +9,6 @@ from fastapi import HTTPException, FastAPI, Request
 from starlette.testclient import TestClient
 
 from agentorchestrator.security import SecurityIntegration
-from agentorchestrator.security.integration import initialize_security
-from agentorchestrator.api.middleware import APISecurityMiddleware
-from agentorchestrator.security.rbac import check_permission
 
 
 @pytest_asyncio.fixture

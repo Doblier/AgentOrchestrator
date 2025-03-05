@@ -10,9 +10,6 @@ from fastapi.testclient import TestClient
 
 from agentorchestrator.api.middleware import APISecurityMiddleware
 from agentorchestrator.security.integration import SecurityIntegration
-from agentorchestrator.security.rbac import RBACManager
-from agentorchestrator.security.audit import AuditLogger
-from agentorchestrator.security.encryption import Encryptor
 
 
 @pytest_asyncio.fixture
