@@ -3,7 +3,8 @@ name: UV Test
 on:
   push:
     # branches: [ main ]
-    branches: [ feature/crfi001 ]
+    # branches: [ feature/crfi001 ]
+    branches: [ dev ]
   pull_request:
     branches: [ main ]
 
