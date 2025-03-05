@@ -4,20 +4,16 @@ Middleware for the API routes, including enhanced security middleware.
 
 import logging
 from collections.abc import Callable
-from datetime import datetime, timezone
 from typing import Optional
 import json
 
-from fastapi import Request, Response, HTTPException, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import Request, Response, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from redis import Redis
 
-from agentorchestrator.security.audit import AuditEvent, AuditEventType, AuditLogger
-from agentorchestrator.security.redis import Redis
+from agentorchestrator.security.audit import AuditLogger
 from agentorchestrator.security.rbac import RBACManager
-from agentorchestrator.security.encryption import Encryptor
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +80,7 @@ class APISecurityMiddleware(BaseHTTPMiddleware):
                 return response
 
             # Check if API key is valid
-            if not await self._is_valid_api_key(api_key):
+            if not await self._is_valid_api_key(api_key, request):
                 raise HTTPException(status_code=401, detail="Invalid API key")
 
             # Set API key and RBAC manager in request state
@@ -117,11 +113,12 @@ class APISecurityMiddleware(BaseHTTPMiddleware):
             logger.error(f"Error in security middleware: {e}")
             raise HTTPException(status_code=500, detail="Internal server error")
 
-    async def _is_valid_api_key(self, api_key: str) -> bool:
+    async def _is_valid_api_key(self, api_key: str, request: Request) -> bool:
         """Check if the API key is valid.
 
         Args:
             api_key: The API key to validate.
+            request: The current request object.
 
         Returns:
             bool: True if the key is valid, False otherwise.

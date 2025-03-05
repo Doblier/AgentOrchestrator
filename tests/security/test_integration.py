@@ -1,12 +1,11 @@
 """Integration tests for the security framework."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 import json
 
 import pytest
 import pytest_asyncio
-from fastapi import HTTPException, Depends, FastAPI, Request
-from starlette.responses import JSONResponse
+from fastapi import HTTPException, FastAPI, Request
 from starlette.testclient import TestClient
 
 from agentorchestrator.security import SecurityIntegration

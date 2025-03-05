@@ -1,12 +1,11 @@
 """Test cases for the RBAC module."""
 
+from unittest.mock import AsyncMock, MagicMock
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone, timedelta
 
 import pytest
 import pytest_asyncio
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.testclient import TestClient
 
 from agentorchestrator.security import SecurityIntegration

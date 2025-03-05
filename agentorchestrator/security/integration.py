@@ -11,7 +11,6 @@ from starlette.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from agentorchestrator.security.audit import (
-    AuditEventType,
     initialize_audit_logger,
     log_auth_failure,
     log_auth_success,

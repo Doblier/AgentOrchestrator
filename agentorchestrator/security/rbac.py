@@ -7,13 +7,12 @@ with fine-grained permissions, hierarchical roles, and resource-specific access 
 
 import json
 import logging
-import uuid
 from typing import Any
 import time
 from datetime import datetime, timezone, timedelta
 import secrets
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from redis import Redis
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 from redis.asyncio import Redis as RedisClient
 
 __all__ = ['Redis']

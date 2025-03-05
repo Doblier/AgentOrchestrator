@@ -1,12 +1,11 @@
 """Test cases for the security framework."""
 
-from typing import Any
 from unittest.mock import MagicMock, AsyncMock, patch
 import json
 
 import pytest
 import pytest_asyncio
-from fastapi import Depends, FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.testclient import TestClient
 
 from agentorchestrator.api.middleware import APISecurityMiddleware
@@ -172,7 +171,7 @@ class TestSecurityFramework:
         })
 
         # Patch encryptor in middleware
-        with patch("agentorchestrator.api.middleware.Encryptor", return_value=mock_encryptor), \
+        with patch("agentorchestrator.security.encryption.Encryptor", return_value=mock_encryptor), \
              patch("agentorchestrator.api.middleware.RBACManager", return_value=AsyncMock()), \
              patch("agentorchestrator.api.middleware.AuditLogger", return_value=AsyncMock()):
             response = client.get(
