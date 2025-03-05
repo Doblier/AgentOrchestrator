@@ -15,26 +15,26 @@ from agentorchestrator.security import SecurityIntegration
 async def mock_app() -> FastAPI:
     """Create a mock FastAPI application."""
     app = FastAPI()
-    
+
     @app.get("/test")
     async def test_endpoint() -> dict[str, str]:
         return {"message": "Success"}
-    
+
     @app.get("/protected")
     async def protected_endpoint(request: Request) -> dict[str, str]:
         """Test endpoint that requires read permission."""
         rbac_manager = request.state.rbac_manager
         api_key = request.state.api_key
-        
+
         # Allow test-key for testing
         if api_key == "test-key":
             return {"message": "Protected"}
-        
+
         # Check permissions
         if not await rbac_manager.has_permission(api_key, "read"):
             raise HTTPException(status_code=403, detail="Permission denied")
         return {"message": "Protected"}
-    
+
     return app
 
 
@@ -42,7 +42,7 @@ async def mock_app() -> FastAPI:
 async def mock_redis() -> AsyncMock:
     """Create a mock Redis client."""
     mock = AsyncMock()
-    
+
     # Mock API key data
     api_key_data = {
         "key": "test-key",
@@ -50,30 +50,33 @@ async def mock_redis() -> AsyncMock:
         "roles": ["admin"],
         "permissions": ["read"],
         "active": True,
-        "ip_whitelist": ["127.0.0.1"]
+        "ip_whitelist": ["127.0.0.1"],
     }
-    
+
     # Mock Redis methods
     mock.hget.return_value = json.dumps(api_key_data).encode()
     mock.get.return_value = b"test-encryption-key"
-    
+
     # Mock pipeline for audit logging
     mock_pipe = AsyncMock()
     mock.pipeline.return_value = mock_pipe
     mock_pipe.zadd = AsyncMock()
     mock_pipe.hset = AsyncMock()
     mock_pipe.execute = AsyncMock()
-    
+
     return mock
 
 
 @pytest_asyncio.fixture
-async def security_integration(mock_app: FastAPI, mock_redis: AsyncMock) -> SecurityIntegration:
+async def security_integration(
+    mock_app: FastAPI, mock_redis: AsyncMock
+) -> SecurityIntegration:
     """Create a security integration instance for testing."""
     # Generate a proper Fernet key for testing
     from cryptography.fernet import Fernet
+
     test_key = Fernet.generate_key().decode()
-    
+
     integration = SecurityIntegration(
         app=mock_app,
         redis=mock_redis,

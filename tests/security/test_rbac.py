@@ -216,7 +216,9 @@ class TestRBACManager:
         assert api_key.expiration is not None
 
         # Verify Redis calls
-        mock_redis_client.sismember.assert_called_once_with("rbac:api_key_names", "test_key")
+        mock_redis_client.sismember.assert_called_once_with(
+            "rbac:api_key_names", "test_key"
+        )
         mock_pipe.hset.assert_called_once()
         mock_pipe.sadd.assert_called_once_with("rbac:api_key_names", "test_key")
         mock_pipe.execute.assert_called_once()

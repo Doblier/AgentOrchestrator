@@ -275,7 +275,9 @@ class RBACManager:
         # Create API key object
         expiration = None
         if expires_in:
-            expiration = int((datetime.now(timezone.utc) + timedelta(seconds=expires_in)).timestamp())
+            expiration = int(
+                (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).timestamp()
+            )
 
         api_key = EnhancedApiKey(
             key=f"ao-{secrets.token_urlsafe(32)}",

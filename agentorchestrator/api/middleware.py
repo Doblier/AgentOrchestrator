@@ -73,7 +73,7 @@ class APISecurityMiddleware(BaseHTTPMiddleware):
                                 "method": request.method,
                                 "path": request.url.path,
                                 "headers": dict(request.headers),
-                            }
+                            },
                         )
                     except Exception as e:
                         logger.error(f"Error logging audit event: {e}")
@@ -100,7 +100,7 @@ class APISecurityMiddleware(BaseHTTPMiddleware):
                             "method": request.method,
                             "path": request.url.path,
                             "headers": dict(request.headers),
-                        }
+                        },
                     )
                 except Exception as e:
                     logger.error(f"Error logging audit event: {e}")

@@ -69,14 +69,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else None
 
         # Enterprise security integration
-        if self.security_integration.enable_rbac or self.security_integration.enable_audit:
+        if (
+            self.security_integration.enable_rbac
+            or self.security_integration.enable_audit
+        ):
             # Process API key for role and permissions
             role = None
             user_id = None
 
             if api_key and self.security_integration.rbac_manager:
                 # Get role from API key
-                redis_role = await self.security_integration.redis.get(f"apikey:{api_key}")
+                redis_role = await self.security_integration.redis.get(
+                    f"apikey:{api_key}"
+                )
 
                 if redis_role:
                     role = redis_role.decode("utf-8")
@@ -150,7 +155,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             logger.error(f"Error processing request: {str(e)}")
 
             # Log error
-            if hasattr(request.state, "api_key") and self.security_integration.audit_logger:
+            if (
+                hasattr(request.state, "api_key")
+                and self.security_integration.audit_logger
+            ):
                 await log_api_request(
                     request=request,
                     user_id=user_id,
@@ -234,6 +242,7 @@ class SecurityIntegration:
         Returns:
             A callable function that checks for the required permission
         """
+
         async def check_permission(request: Request) -> None:
             """Check if the request has the required permission.
 
@@ -270,6 +279,7 @@ class SecurityIntegration:
         Returns:
             Depends: A FastAPI dependency that checks if the request has the required permission
         """
+
         async def check_permission(request: Request) -> None:
             """Check if the request has the required permission.
 

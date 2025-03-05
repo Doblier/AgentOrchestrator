@@ -58,20 +58,22 @@ def mock_langchain_gemini():
 def mock_redis_client() -> AsyncMock:
     """Create a mock Redis client with async support."""
     mock = AsyncMock()
-    
+
     # Mock basic Redis operations
     mock.exists = AsyncMock(return_value=True)
     mock.get = AsyncMock(return_value=b'{"roles": ["admin"]}')
     mock.setex = AsyncMock()
     mock.incr = AsyncMock(return_value=1)
-    mock.hget = AsyncMock(return_value=b'{"key": "test-key", "name": "test", "roles": ["admin"], "permissions": ["read"]}')
+    mock.hget = AsyncMock(
+        return_value=b'{"key": "test-key", "name": "test", "roles": ["admin"], "permissions": ["read"]}'
+    )
     mock.sismember = AsyncMock(return_value=False)
-    
+
     # Mock pipeline operations
     mock_pipe = AsyncMock()
     mock_pipe.hset = AsyncMock()
     mock_pipe.zadd = AsyncMock()
     mock_pipe.execute = AsyncMock()
     mock.pipeline.return_value = mock_pipe
-    
+
     return mock

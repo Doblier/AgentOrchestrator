@@ -16,13 +16,15 @@ from agentorchestrator.security.integration import SecurityIntegration
 async def mock_redis_client() -> AsyncMock:
     """Create a mock Redis client."""
     mock = AsyncMock()
-    mock.hget.return_value = json.dumps({
-        "key": "test-key",
-        "name": "test",
-        "roles": ["admin"],
-        "permissions": ["read"],
-        "active": True,
-    })
+    mock.hget.return_value = json.dumps(
+        {
+            "key": "test-key",
+            "name": "test",
+            "roles": ["admin"],
+            "permissions": ["read"],
+            "active": True,
+        }
+    )
     return mock
 
 
@@ -74,7 +76,7 @@ def test_app(mock_redis_client: MagicMock) -> FastAPI:
         """Test endpoint that requires read permission."""
         rbac_manager = request.state.rbac_manager
         api_key = request.state.api_key
-        
+
         # Check permissions
         if not await rbac_manager.has_permission(api_key, "read"):
             raise HTTPException(status_code=403, detail="Permission denied")
@@ -101,19 +103,24 @@ class TestSecurityFramework:
     ) -> None:
         """Test that RBAC denies access when permission is not granted."""
         # Mock Redis to return key data
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "no-permission-key",
-            "name": "test",
-            "roles": ["user"],
-            "permissions": [],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "no-permission-key",
+                "name": "test",
+                "roles": ["user"],
+                "permissions": [],
+                "active": True,
+            }
+        )
 
         # Mock RBAC manager to deny permission
         mock_rbac_manager.has_permission.return_value = False
 
         # Patch RBAC manager in middleware
-        with patch("agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager):
+        with patch(
+            "agentorchestrator.api.middleware.RBACManager",
+            return_value=mock_rbac_manager,
+        ):
             response = client.get(
                 "/protected",
                 headers={"X-API-Key": "no-permission-key"},
@@ -129,19 +136,24 @@ class TestSecurityFramework:
     ) -> None:
         """Test that RBAC grants access when permission is granted."""
         # Mock Redis to return key data
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "test-key",
-            "name": "test",
-            "roles": ["admin"],
-            "permissions": ["read"],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "test-key",
+                "name": "test",
+                "roles": ["admin"],
+                "permissions": ["read"],
+                "active": True,
+            }
+        )
 
         # Mock RBAC manager to grant permission
         mock_rbac_manager.has_permission.return_value = True
 
         # Patch RBAC manager in middleware
-        with patch("agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager):
+        with patch(
+            "agentorchestrator.api.middleware.RBACManager",
+            return_value=mock_rbac_manager,
+        ):
             response = client.get(
                 "/protected",
                 headers={"X-API-Key": "test-key"},
@@ -159,18 +171,29 @@ class TestSecurityFramework:
         mock_redis_client.get.return_value = b"test-encryption-key"
 
         # Mock Redis to return key data
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "test-key",
-            "name": "test",
-            "roles": ["admin"],
-            "permissions": ["read"],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "test-key",
+                "name": "test",
+                "roles": ["admin"],
+                "permissions": ["read"],
+                "active": True,
+            }
+        )
 
         # Patch encryptor in middleware
-        with patch("agentorchestrator.security.encryption.Encryptor", return_value=mock_encryptor), \
-             patch("agentorchestrator.api.middleware.RBACManager", return_value=AsyncMock()), \
-             patch("agentorchestrator.api.middleware.AuditLogger", return_value=AsyncMock()):
+        with (
+            patch(
+                "agentorchestrator.security.encryption.Encryptor",
+                return_value=mock_encryptor,
+            ),
+            patch(
+                "agentorchestrator.api.middleware.RBACManager", return_value=AsyncMock()
+            ),
+            patch(
+                "agentorchestrator.api.middleware.AuditLogger", return_value=AsyncMock()
+            ),
+        ):
             response = client.get(
                 "/test",
                 headers={"X-API-Key": "test-key"},
@@ -187,13 +210,15 @@ class TestSecurityFramework:
     ) -> None:
         """Test that audit logging captures events."""
         # Mock Redis to return key data
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "test-key",
-            "name": "test",
-            "roles": ["admin"],
-            "permissions": ["read"],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "test-key",
+                "name": "test",
+                "roles": ["admin"],
+                "permissions": ["read"],
+                "active": True,
+            }
+        )
 
         # Mock RBAC manager to grant permission
         mock_rbac_manager.has_permission.return_value = True
@@ -206,8 +231,16 @@ class TestSecurityFramework:
         mock_pipe.execute = AsyncMock()
 
         # Patch RBAC manager and audit logger in middleware
-        with patch("agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager), \
-             patch("agentorchestrator.api.middleware.AuditLogger", return_value=mock_audit_logger):
+        with (
+            patch(
+                "agentorchestrator.api.middleware.RBACManager",
+                return_value=mock_rbac_manager,
+            ),
+            patch(
+                "agentorchestrator.api.middleware.AuditLogger",
+                return_value=mock_audit_logger,
+            ),
+        ):
             response = client.get(
                 "/protected",
                 headers={"X-API-Key": "test-key"},
@@ -227,7 +260,7 @@ class TestSecurityFramework:
                         "user-agent": "testclient",
                         "x-api-key": "test-key",
                     },
-                }
+                },
             )
 
 
@@ -267,18 +300,22 @@ async def test_api_security_middleware(
 
     # Mock Redis to return key data for test-key
     if api_key == "test-key":
-        mock_redis_client.hget.return_value = json.dumps({
-            "key": "test-key",
-            "name": "test",
-            "roles": ["admin"],
-            "permissions": ["read"],
-            "active": True,
-        })
+        mock_redis_client.hget.return_value = json.dumps(
+            {
+                "key": "test-key",
+                "name": "test",
+                "roles": ["admin"],
+                "permissions": ["read"],
+                "active": True,
+            }
+        )
     elif api_key == "invalid-key":
         mock_redis_client.hget.return_value = None
 
     # Mock RBAC manager
-    with patch("agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager):
+    with patch(
+        "agentorchestrator.api.middleware.RBACManager", return_value=mock_rbac_manager
+    ):
         # Make request with or without API key
         headers = {"X-API-Key": api_key} if api_key else {}
         try:
