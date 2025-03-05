@@ -83,7 +83,7 @@ jobs:
   uat:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/feature/crfi001' || startsWith(github.ref, 'refs/heads/release/'))
     
     steps:
     - uses: actions/checkout@v3
@@ -130,7 +130,7 @@ jobs:
   build:
     needs: [test, uat]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/crfi001'
     
     steps:
     - uses: actions/checkout@v3
@@ -176,7 +176,7 @@ jobs:
   deploy-prod:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/crfi001'
     environment: production
     
     steps:
