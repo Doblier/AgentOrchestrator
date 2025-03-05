@@ -55,6 +55,7 @@ async def mock_redis() -> AsyncMock:
 
     # Generate a proper Fernet key for testing
     from cryptography.fernet import Fernet
+
     test_key = Fernet.generate_key()
 
     # Mock Redis methods
